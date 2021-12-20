@@ -839,11 +839,8 @@ async def on_message(Message):
           await VariantLookup(Message)
         elif Message.content.upper().startswith("$VERSION"):
           Changelog = [
-            "1. API: Changed scan start time from 1540 to 1440 & timeout condition from 1500 to 1400.",
-            "2. Secondary: Added total doses delivered as sum of the existing First, Second, and Additional doses.",
-            "3. API: Fixed a bug that caused the bot to crash if a timeout condition was reached.",
-            "4. Messages: Fixed an error that caused the wrong ISO standard to be displayed in the `$help` prompt.",
-            "5. Variants: Fixed a bug that caused the script to crash when using the `number` command."
+            "1. API: Reverted change 1 from Version 6.5.",
+            "2. Configuration: Replaced Discord.txt for Discord.json."
           ]
           Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version " + VersionNum + ".\n"
           Output += "Changelog:\n"

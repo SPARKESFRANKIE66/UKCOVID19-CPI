@@ -1,4 +1,3 @@
 # UKCOVID19
-UKCOVID19 API Discord bot.
+An application interfacing the Python UK-COVID19 SDK from the United Kingdom Health Security Agency into a Discord bot and 20✕4 Character LCD Display with 3 signal LEDs.
 
-I'll add something here at some point, just give me a minute or two to work out exactly what I'm doing here

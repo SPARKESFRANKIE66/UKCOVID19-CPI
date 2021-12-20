@@ -1,0 +1,151 @@
+{
+  "Last Updated": "2021-12-20",
+  "Associations": [
+    {
+      "Substring": "Q.",
+      "References": [
+        "B.1.1.7"
+      ]
+    },
+    {
+      "Substring": "XA",
+      "References": [
+        "B.1.1.7"
+      ]
+    },
+    {
+      "Substring": "AY.",
+      "References": [
+        "B.1.617.2"
+      ]
+    }
+  ],
+  "Variants": [
+    {
+      "Ltr": "α",
+      "Latin": "Alpha",
+      "PANGO": [
+        "B.1.1.7"
+      ],
+      "Variant of": "Concern",
+      "Earliest Sample": "2020-09",
+      "Nation": "GB"
+    },
+    {
+      "Ltr": "β",
+      "Latin": "Beta",
+      "PANGO": [
+        "B.1.351"
+      ],
+      "Variant of": "Concern",
+      "Earliest Sample": "2020-05",
+      "Nation": "ZA"
+    },
+    {
+      "Ltr": "γ",
+      "Latin": "Gamma",
+      "PANGO": [
+        "P.1"
+      ],
+      "Variant of": "Concern",
+      "Earliest Sample": "2020-11",
+      "Nation": "BR"
+    },
+    {
+      "Ltr": "δ",
+      "Latin": "Delta",
+      "PANGO": [
+        "B.1.617.2"
+      ],
+      "Variant of": "Concern",
+      "Earliest Sample": "2020-10",
+      "Nation": "IN"
+    },
+    {
+      "Ltr": "λ",
+      "Latin": "Lambda",
+      "PANGO": [
+        "C.37"
+      ],
+      "Variant of": "Interest",
+      "Earliest Sample": "2020-08",
+      "Nation": "PE"
+    },
+    {
+      "Ltr": "μ",
+      "Latin": "Mu",
+      "PANGO": [
+        "B.1.621"
+      ],
+      "Variant of": "Interest",
+      "Earliest Sample": "2021-01",
+      "Nation": "CO"
+    },
+    {
+      "Ltr": "ο",
+      "Latin": "Omicron",
+      "PANGO": [
+        "B.1.1.529"
+      ],
+      "Variant of": "Concern",
+      "Earliest Sample": "2021-11",
+      "Nation": "UN"
+    },
+    {
+      "PANGO": [
+        "AZ.5"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2021-01",
+      "Nation": "UN"
+    },
+    {
+      "PANGO": [
+        "C.1.2"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2021-05",
+      "Nation": "ZA"
+    },
+    {
+      "PANGO": [
+        "B.1.617.1"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2020-10",
+      "Nation": "IN"
+    },
+    {
+      "PANGO": [
+        "B.1.526"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2020-11",
+      "Nation": "US"
+    },
+    {
+      "PANGO": [
+        "B.1.525"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2020-12",
+      "Nation": "UN"
+    },
+    {
+      "PANGO": [
+        "B.1.630"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2021-03",
+      "Nation": "DO"
+    },
+    {
+      "PANGO": [
+        "B.1.640"
+      ],
+      "Variant of": "Observation",
+      "Earliest Sample": "2021-09",
+      "Nation": "CG"
+    }
+  ]
+}
