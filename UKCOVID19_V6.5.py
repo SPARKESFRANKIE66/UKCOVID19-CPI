@@ -7,7 +7,7 @@ import asyncio, discord, flag, lcddriver, os, requests, time, traceback
 
 # Global Constants
 VersionNum = "6.5b"
-BeginTime = "1440"
+BeginTime = "1540"
 DelayTime = 15
 DataAggregationTemplate = {
   "Date": None,
@@ -49,7 +49,7 @@ DataAggregationTemplate = {
     "Change": None
   }
 }
-TimeoutCondition = "1400"
+TimeoutCondition = "1500"
 
 # COVID API Constants
 Filters = [
