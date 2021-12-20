@@ -240,12 +240,9 @@ def LoadDiscordInfo():
   if os.path.isfile(DiscordInfoFilename):
     if os.path.getsize(DiscordInfoFilename) > 8:
       with open(DiscordInfoFilename, 'r') as DiscordInfoFile:
-        FileOutput = DiscordInfoFile.read().split('\n')
-      for i in range(len(FileOutput)):
-        if FileOutput[i].split('=')[0] == "Token":
-          BotToken = FileOutput[i].split('=')[1]
-        elif FileOutput[i].split('=')[0] == "ID":
-          ChannelID = int(FileOutput[i].split('=')[1])
+        FileOutput = loads(DiscordInfoFile.read())
+      BotToken = FileOutput["Token"]
+      ChannelID = FileOutput["ChannelID"]
     else:
       raise Exception("Discord bot file invalid.")
   else:
