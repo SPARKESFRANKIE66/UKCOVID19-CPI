@@ -6,7 +6,7 @@ from uk_covid19 import Cov19API
 import asyncio, discord, flag, lcddriver, os, requests, time, traceback
 
 # Global Constants
-VersionNum = "6.5b"
+VersionNum = "6.5.1b"
 BeginTime = "1540"
 DelayTime = 15
 DataAggregationTemplate = {
@@ -98,7 +98,7 @@ SuppFilesRootFolder = RootFolder + "SuppFiles/"
 
 # Files
 AllDataFilename = SuppFilesRootFolder + "AllData.json"
-DiscordInfoFilename = SuppFilesRootFolder + "Discord.txt"
+DiscordInfoFilename = SuppFilesRootFolder + "Discord.json"
 LogFilename = RuntimeLogsRootFolder + "Log_"
 LastOutputFilename = SuppFilesRootFolder + "LastOutput.txt"
 RollAvgPeaksFilename = SuppFilesRootFolder + "RAPeaks.json"
