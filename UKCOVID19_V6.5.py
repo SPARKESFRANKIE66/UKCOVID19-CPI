@@ -6,8 +6,8 @@ from uk_covid19 import Cov19API
 import asyncio, discord, flag, lcddriver, os, requests, time, traceback
 
 # Global Constants
-VersionNum = "6.5b"
-BeginTime = "1440"
+VersionNum = "6.5.1b"
+BeginTime = "1540"
 DelayTime = 15
 DataAggregationTemplate = {
   "Date": None,
@@ -49,7 +49,7 @@ DataAggregationTemplate = {
     "Change": None
   }
 }
-TimeoutCondition = "1400"
+TimeoutCondition = "1500"
 
 # COVID API Constants
 Filters = [
@@ -98,7 +98,7 @@ SuppFilesRootFolder = RootFolder + "SuppFiles/"
 
 # Files
 AllDataFilename = SuppFilesRootFolder + "AllData.json"
-DiscordInfoFilename = SuppFilesRootFolder + "Discord.txt"
+DiscordInfoFilename = SuppFilesRootFolder + "Discord.json"
 LogFilename = RuntimeLogsRootFolder + "Log_"
 LastOutputFilename = SuppFilesRootFolder + "LastOutput.txt"
 RollAvgPeaksFilename = SuppFilesRootFolder + "RAPeaks.json"
@@ -240,12 +240,9 @@ def LoadDiscordInfo():
   if os.path.isfile(DiscordInfoFilename):
     if os.path.getsize(DiscordInfoFilename) > 8:
       with open(DiscordInfoFilename, 'r') as DiscordInfoFile:
-        FileOutput = DiscordInfoFile.read().split('\n')
-      for i in range(len(FileOutput)):
-        if FileOutput[i].split('=')[0] == "Token":
-          BotToken = FileOutput[i].split('=')[1]
-        elif FileOutput[i].split('=')[0] == "ID":
-          ChannelID = int(FileOutput[i].split('=')[1])
+        FileOutput = loads(DiscordInfoFile.read())
+      BotToken = FileOutput["Token"]
+      ChannelID = FileOutput["ChannelID"]
     else:
       raise Exception("Discord bot file invalid.")
   else:
@@ -842,11 +839,8 @@ async def on_message(Message):
           await VariantLookup(Message)
         elif Message.content.upper().startswith("$VERSION"):
           Changelog = [
-            "1. API: Changed scan start time from 1540 to 1440 & timeout condition from 1500 to 1400.",
-            "2. Secondary: Added total doses delivered as sum of the existing First, Second, and Additional doses.",
-            "3. API: Fixed a bug that caused the bot to crash if a timeout condition was reached.",
-            "4. Messages: Fixed an error that caused the wrong ISO standard to be displayed in the `$help` prompt.",
-            "5. Variants: Fixed a bug that caused the script to crash when using the `number` command."
+            "1. API: Reverted change 1 from Version 6.5.",
+            "2. Configuration: Replaced Discord.txt for Discord.json."
           ]
           Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version " + VersionNum + ".\n"
           Output += "Changelog:\n"
