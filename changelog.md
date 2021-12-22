@@ -1,4 +1,7 @@
 # Changelog
+## Version 6.6
+Changes in dot update 6.6:
+1. Messages: Fixed a bug that caused the script to crash if a message exceeded 2,000 characters. 
 ## Version 6.5
 Changes in dot update 6.5:
 1. API: Changed scan start time from 1540 to 1440 & timeout condition from 1500 to 1400.
