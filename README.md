@@ -51,10 +51,8 @@ The `config.json` file stores:
 * `BotToken`: The token for the Discord bot.
 * `ChannelID`: The ID number for the channel the bot will send and receive messages from.
 * `AllData`: The file that contains all the formatted data from all time.
-* `ErrorLogs`: The directory where fatal exception log files will be stored. These files are generated when the script enters an unrecoverable state and crashes.
 * `Messages`: The file in which messages received from the API that have been sent are stored to ensure messages are not sent more than once, even between restarts. Also supports the entering of your own messages.
 * `RollAvgPeaks`: The file which stores the dates and values of the 7-day rolling average peaks of Cases and Deaths.
-* `RuntimeLogs`: The directory where standard operating logs are stored. This includes time-stampted messages about the current operation, whether it succeeded, and if it failed, the error details.
 * `Variants`: The file which contains details about current variants of interest. Further information is provided below.
 * `StatusMessages`: A list of web addresses that interface with the API to obtain relevant messages from the server.
 
@@ -62,12 +60,16 @@ You can create your own file using the following template:
 ```json
 {
   "Configuration": {
-    "StartSearchingTime": "",
-    "WaitTime": 0,
-    "TimeoutTime": "",
     "ExcludedDays": [
 
-    ]
+    ],
+    "NetworkTestAddresses": [
+      
+    ],
+    "StartSearchingTime": "",
+    "TimeoutTime": "",
+    "VariantsEnable": true,
+    "WaitTime": 0
   },
   "Discord": {
     "BotToken": "",
@@ -75,10 +77,8 @@ You can create your own file using the following template:
   },
   "Files": {
     "AllData": "",
-    "ErrorLogs": "",
     "Messages": "",
     "RollAvgPeaks": "",
-    "RuntimeLogs": "",
     "Variants": ""
   },
   "StatusMessages": {
@@ -91,6 +91,7 @@ You can create your own file using the following template:
   }
 }
 ```
+You must specify the path of the `config.json` in the code on line 101. Additionally, you can specify in code a custom path for the `ErrorLogs` file and custom path and file name for the `RuntimeLogs` file, or allow it to use the root directory. For the `RuntimeLogs` file, you can separate the files by day by adding `%DATE%` anywhere in the filename.
 
 The `variants.json` file is a regularly updated file. It combines the COVID-19 variants of Concern, Interest, and Observation from the [WHO list](https://www.who.int/en/activities/tracking-SARS-CoV-2-variants/) and associations from the [PANGO Lineage](https://cov-lineages.org) website.
 

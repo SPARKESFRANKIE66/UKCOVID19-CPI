@@ -6,8 +6,8 @@ from uk_covid19 import Cov19API
 import asyncio, discord, flag, lcddriver, os, requests, time, traceback
 
 # Global Constants
-VersionNum = "6.5.1b"
-BeginTime = "1540"
+Version = "7.0"
+BeginTime = ""
 DelayTime = 15
 DataAggregationTemplate = {
   "Date": None,
@@ -49,12 +49,15 @@ DataAggregationTemplate = {
     "Change": None
   }
 }
-TimeoutCondition = "1500"
+NetworkTestAddresses = [
+  
+]
+TimeoutTime = "2359"
 
 # COVID API Constants
 Filters = [
   "areaType=Overview",
-  "areaName=United Kingdom"
+  "areaName=UnitedKingdom"
 ]
 PrimaryStructure = {
   "Date": "date",
@@ -78,6 +81,7 @@ SecondaryLatestBy = "newPeopleVaccinatedFirstDoseByPublishDate"
 # COVID API Instantiations
 PrimaryAPI = Cov19API(Filters, PrimaryStructure, PrimaryLatestBy)
 SecondaryAPI = Cov19API(Filters, SecondaryStructure, SecondaryLatestBy)
+AllDataAPI = Cov19API(Filters, PrimaryStructure)
 
 # COVID Pi GPIO Constants
 Display = lcddriver.lcd()
@@ -90,29 +94,22 @@ DiscordClient = discord.Client()
 BotToken = ""
 ChannelID = 0
 
-# Directories
-RootFolder = "/home/pi/Documents/UKCOVID19/"
-ErrorLogsRootFolder = RootFolder + "Logs/ErrorLogs/"
-RuntimeLogsRootFolder = RootFolder + "Logs/RuntimeLogs/"
-SuppFilesRootFolder = RootFolder + "SuppFiles/"
-
 # Files
-AllDataFilename = SuppFilesRootFolder + "AllData.json"
-DiscordInfoFilename = SuppFilesRootFolder + "Discord.json"
-LogFilename = RuntimeLogsRootFolder + "Log_"
-LastOutputFilename = SuppFilesRootFolder + "LastOutput.txt"
-RollAvgPeaksFilename = SuppFilesRootFolder + "RAPeaks.json"
-VariantsFilename = SuppFilesRootFolder + "Variants.json"
+Files = {
+  "AllData": None,
+  "Config": "config.json",
+  "ErrorLogs": "",
+  "Messages": "",
+  "RollAvgPeaks": "",
+  "RuntimeLogs": "",
+  "Variants": None
+}
 
-# Status Messages URL and Files
-BlueBannersTemplateAddress = "https://coronavirus.data.gov.uk/api/generic/log_banners/"
-BlueBannersWebAddresses = [
-  BlueBannersTemplateAddress + date.today().isoformat() + "/Cases/overview/United%20Kingdom",
-  BlueBannersTemplateAddress + date.today().isoformat() + "/Deaths/overview/United%20Kingdom",
-  BlueBannersTemplateAddress + date.today().isoformat() + "/Vaccinations/overview/United%20Kingdom"
-]
-MessagesFilename = SuppFilesRootFolder + "Messages.json"
-YellowBannersWebAddress = "https://coronavirus.data.gov.uk/api/generic/announcements"
+# Messages Addresses
+StatusMessagesAddresses = {
+  "BlueBannersAddresses": [],
+  "YellowBannersAddress": None
+}
 
 # Global Variables
 CurrentDisplay = [
@@ -123,15 +120,19 @@ CurrentDisplay = [
 ]
 DateOfCurrentData = "1970-01-01"
 ErrorMode = False
-LatestRecordFormatted = DataAggregationTemplate
+ExcludedDates = [
+
+]
+LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
 PrimaryUpdated = False
 SecondaryUpdated = False
+VariantsEnable = False
 
 # Startup Procedures
 def POST():
   Display.lcd_clear()
   Display.lcd_display_string("Welcome to COVID Pi.", 1)
-  Display.lcd_display_string("Version " + VersionNum + ".", 2)
+  Display.lcd_display_string("Version " + Version + ".", 2)
   for _ in range(2):
     ErrorLED.on()
     time.sleep(0.5)
@@ -143,11 +144,101 @@ def POST():
     time.sleep(0.5)
     NewLED.off()
 
+def LoadConfig(Reload = False):
+  global BeginTime, BotToken, ChannelID, DelayTime, ExcludedDates, Files, NetworkTestAddresses, TimeoutTime, VariantsEnable
+  WriteToMainLog("Loading configuration file. . .")
+  if os.path.isfile(Files["Config"]):
+    with open(Files["Config"]) as ConfigFile:
+      ConfigFileContents = loads(ConfigFile.read())
+    WriteToMainLog("File loaded.")
+    if ConfigFileContents.has_key("Configuration"):
+      WriteToMainLog("Loading general configuration. . .")
+      Configuration = ConfigFileContents["Configuration"]
+      if Configuration.has_key("ExcludedDates"):
+        ExcludedDates = Configuration["ExcludedDates"]
+      if not Reload:
+        if Configuration.has_key("NetworkTestAddresses"):
+          Addresses = Configuration["NetworkTestAddresses"]
+          if Addresses.has_key("Internal"):
+            NetworkTestAddresses["Internal"] = Addresses["Internal"]
+          else:
+            raise Exception("Internal network URL or IP address not found in file.")
+          if Addresses.has_key("External"):
+            NetworkTestAddresses["Enternal"] = Addresses["External"]
+          else:
+            raise Exception("External network URL or IP address not found in file.")
+        else:
+          raise Exception("Specified addresses for network test not found in file.")
+      if Configuration.has_key("StartSearchingTime"):
+        BeginTime = Configuration["StartSearchingTime"]
+      else:
+        raise Exception("Searching start time not found in file.")
+      if Configuration.has_key("TimeoutTime"):
+        TimeoutTime = Configuration["TimeoutTime"]
+      else:
+        WriteToMainLog("Timeout time not found in configuration file. Using default timeout time.")
+      if Configuration.has_key("VariantsEnable"):
+        VariantsEnable = Configuration["VariantsEnable"]
+      else:
+        WriteToMainLog("Variants toggle not found in file. Using default value.")
+      if Configuration.has_key("WaitTime"):
+          DelayTime = Configuration["WaitTime"]
+      else:
+        WriteToMainLog("Wait time not found in configuration file. Using default wait time.")
+      WriteToMainLog("General configuration loaded. . .")
+    else:
+      raise Exception("Configuration settings not found in file.")
+    if not Reload:
+      if ConfigFileContents.has_key("Discord"):
+        WriteToMainLog("Loading Discord configuration. . .")
+        DiscordSettings = ConfigFileContents["Discord"]
+        if DiscordSettings.has_key("BotToken"):
+          BotToken = DiscordSettings["BotToken"]
+        else:
+          raise Exception("Discord bot token not found in file.")
+        if DiscordSettings.has_key("ChannelID"):
+          ChannelID = DiscordSettings["ChannelID"]
+        else:
+          raise Exception("Discord Channel ID not found in file.")
+        WriteToMainLog("Discord configuration loaded.")
+      else:
+        raise Exception("Discord settings not found in file.")
+    if ConfigFileContents.has_key("Files"):
+      WriteToMainLog("Directories loading. . .")
+      FileList = ConfigFileContents["Files"]
+      if FileList.has_key("AllData"):
+        Files["AllData"] = FileList["AllData"]
+      else:
+        raise Exception("All Data path not found in file.")
+      if FileList.has_key("Messages"):
+        Files["Messages"] = FileList["Messages"]
+      else:
+        WriteToMainLog("No messages file found in file. Defaulting to the parent folder of the script.")
+      if FileList.has_key("RollAvgPeaks"):
+        Files["RollAvgPeaks"] = FileList["RollAvgPeaks"]
+      else:
+        raise Exception("Rolling Averages Peaks file not found in file.")
+      if VariantsEnable:
+        if FileList.has_key("Variants"):
+          Files["Variants"] = FileList["Variants"]
+        else:
+          VariantsEnable = False
+          WriteToMainLog("Variants file not found in file. Disabling variants function.")
+      WriteToMainLog("Directories loaded.")
+    else:
+      raise Exception("File paths not found in file.")
+    if ConfigFileContents.has_key("StatusMessages"):
+      StatusMessages = ConfigFileContents["StatusMessages"]
+      if StatusMessages.has_key("BlueBannersAddresses"):
+        StatusMessagesAddresses["BlueBannersAddresses"] = StatusMessages["BlueBannersAddresses"]
+      if StatusMessages.has_key("YellowBannersAddress"):
+        StatusMessagesAddresses["YellowBannersAddress"] = StatusMessages["YellowBanners"]
+  else:
+    Display.lcd_display_string("No config file.")
+    raise Exception("The configuration file was not found in the specified directory.\nPlease check the file path and try again.")
+
 def WaitForNetwork():
-  IPAddresses = [
-    "http://192.168.0.1",
-    "http://1.1.1.1"
-  ]
+  global NetworkTestAddresses
   ErrorMode = False
   SuccessfulNetworkCheck = False
   OldLED.on()
@@ -155,11 +246,11 @@ def WaitForNetwork():
   WriteToMainLog("Waiting for network connectivity. . .")
   while not SuccessfulNetworkCheck:
     try:
-      for i in range(len(IPAddresses)):
-        WriteToMainLog("Testing connection to IP address " + IPAddresses[i] + ". . .")
-        R = requests.get(IPAddresses[i])
+      for i in range(len(NetworkTestAddresses)):
+        WriteToMainLog("Testing connection to IP address " + NetworkTestAddresses[i] + ". . .")
+        R = requests.get(NetworkTestAddresses[i])
         if R.status_code != 200 and R.status_code != 204:
-          raise Exception("Request fail with status code " + str(R.status_code) + " on address " + IPAddresses[i])
+          raise Exception("Request fail with status code " + str(R.status_code) + " on address " + NetworkTestAddresses[i])
         WriteToMainLog("Test completed with status code " + str(R.status_code) + ".")
         if ErrorMode:
           ErrorLED.off()
@@ -180,35 +271,11 @@ def WaitForNetwork():
   OldLED.off()
   NewLED.off()
 
-def ReloadLastOutputFromFile():
-  global CurrentDisplay, DateOfCurrentData, ErrorMode
-  if os.path.isfile(LastOutputFilename):
-    if os.path.getsize(LastOutputFilename) > 8:
-      with open(LastOutputFilename,'r') as LastOutputFile:
-        LastOutput = LastOutputFile.read().split('\n')
-      for i in range(len(LastOutput)-1):
-        if i == 0:
-          Line = LastOutput[i].split(",")
-          DateOfCurrentData = Line[0]
-          if Line[1] == "True":
-            ErrorMode = True
-            ErrorLED.on()
-        else:
-          CurrentDisplay[i-1] = LastOutput[i]
-          if CurrentDisplay[i-1] != "X":
-            Display.lcd_display_string(CurrentDisplay[i-1],i)
-            WriteToMainLog("Written line " + str(i) + " of last output to display.")
-      WriteToMainLog("Previous data written to display.")
-    else:
-      ReloadLastOutputFromReserve()
-  else:
-    ReloadLastOutputFromReserve()
-
-def ReloadLastOutputFromReserve():
+def ReloadLastOutput():
   global CurrentDisplay, DateOfCurrentData, ErrorMode, LatestRecordFormatted
-  if os.path.isfile(AllDataFilename):
-    if os.path.getsize(AllDataFilename) > 8:
-      with open(AllDataFilename, 'r') as AllDataFile:
+  if os.path.isfile(Files["AllData"]):
+    if os.path.getsize(Files["AllData"]) > 8:
+      with open(Files["AllData"], 'r') as AllDataFile:
         LatestRecordFormatted = loads(AllDataFile.read())[0]
       try:
         DateOfCurrentData = LatestRecordFormatted["Date"]
@@ -235,57 +302,49 @@ def ReloadLastOutputFromReserve():
     CurrentDisplay[3] = "data found.".center(20)
   CommitDisplay(CurrentDisplay)
 
-def LoadDiscordInfo():
-  global BotToken, ChannelID
-  if os.path.isfile(DiscordInfoFilename):
-    if os.path.getsize(DiscordInfoFilename) > 8:
-      with open(DiscordInfoFilename, 'r') as DiscordInfoFile:
-        FileOutput = loads(DiscordInfoFile.read())
-      BotToken = FileOutput["Token"]
-      ChannelID = FileOutput["ChannelID"]
-    else:
-      raise Exception("Discord bot file invalid.")
-  else:
-    raise Exception("Discord bot file not found.")
-
 # Common Procedures
 async def TimeReview():
   try:
-    global BlueBannersWebAddresses, DataAggregationTemplate, LatestRecordFormatted, LogFilename, PrimaryUpdated, SecondaryUpdated, RuntimeLogsRootFolder
+    global DataAggregationTemplate, ErrorMode, Files, LatestRecordFormatted, PrimaryUpdated, SecondaryUpdated, StatusMessagesAddresses
     await WaitForDiscord()
     await DiscordClient.change_presence(status=discord.Status.idle)
     WriteToMainLog("Beginning time loop.")
     while True:
+      CurrentDate = date.today().isoformat()
       CurrentTime = datetime.now().strftime("%H%M")
       Minutes = datetime.now().strftime("%M")
-      if DateOfCurrentData == date.today().isoformat() and not PrimaryUpdated:
+      if DateOfCurrentData == CurrentDate and not PrimaryUpdated:
         PrimaryUpdated = True
-        WriteToMainLog("Latest data confirmed.")
         NewLED.on()
-      elif CurrentTime >= BeginTime and not (PrimaryUpdated or SecondaryUpdated):
-        WriteToMainLog("API refresh starting.")
-        LatestRecordFormatted = DataAggregationTemplate
-        await APICheck()
-        WriteToMainLog("API refresh ending.")
-        if PrimaryUpdated:
-          await CheckRollAvgPeaks()
-        await asyncio.sleep(90)
-        await CheckForMessage()
-      elif CurrentTime < BeginTime and PrimaryUpdated:
-        LogFilename = RuntimeLogsRootFolder + "Log_" + date.today().isoformat() + ".txt"
-        WriteToMainLog("--- NEW DAY ---", False)
-        PrimaryUpdated = False
-        if SecondaryUpdated:
+        WriteToMainLog("Latest data confirmed.")
+      elif not ExcludedDates.__contains__("CurrentDate"):
+        if CurrentTime >= BeginTime and not (PrimaryUpdated or SecondaryUpdated):
+          WriteToMainLog("Daily data load beginning.")
+          LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
+          await APICheck()
+          WriteToMainLog("Daily data load ending.")
+          if PrimaryUpdated:
+            await CheckRollAvgPeaks()
+          await asyncio.sleep(90)
+          await CheckForMessage()
+        elif CurrentTime < BeginTime and PrimaryUpdated:
+          WriteToMainLog("--- NEW DAY ---", False)
+          PrimaryUpdated = False
           SecondaryUpdated = False
-        OldLED.off()
-        NewLED.off()
-        LatestRecordFormatted = DataAggregationTemplate
-        BlueBannersWebAddresses = [
-          BlueBannersTemplateAddress + date.today().isoformat() + "/Cases/overview/United%20Kingdom",
-          BlueBannersTemplateAddress + date.today().isoformat() + "/Deaths/overview/United%20Kingdom",
-          BlueBannersTemplateAddress + date.today().isoformat() + "/Vaccinations/overview/United%20Kingdom"
-        ]
-      elif Minutes == "00":
+          OldLED.off()
+          NewLED.off()
+          LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
+      else:
+        if CurrentTime == "0000" and PrimaryUpdated:
+          PrimaryUpdated = False
+          SecondaryUpdated = False
+          OldLED.off()
+          NewLED.off()
+        if not PrimaryUpdated:
+          PrimaryUpdated = True
+          WriteToMainLog("No update today.")
+          await SendMessage("No data is being released for this day.")
+      if Minutes == "00":
         await CheckForMessage()
         await asyncio.sleep(55)
       await asyncio.sleep(5)
@@ -293,1044 +352,329 @@ async def TimeReview():
     await FatalException()
 
 async def APICheck():
-  global CurrentDisplay, DateOfCurrentData, DelayTime, ErrorMode, LatestRecordFormatted, PrimaryUpdated, SecondaryUpdated
-  await WaitForDiscord()
-  await DiscordClient.change_presence(status=discord.Status.online)
-  CurrentDate = date.today().isoformat()
-  PreviousDate = (datetime.today() - timedelta(days=1)).isoformat().split('T')[0]
-  CurrentTime = datetime.today().strftime("%H%M")
-  Minutes = datetime.today().strftime("%M")
-  OldLED.on()
-  MessagesChecked = False
-  while not (PrimaryUpdated and SecondaryUpdated) and CurrentTime != TimeoutCondition:
-    CurrentTime = datetime.today().strftime("%H%M")
-    Minutes = datetime.today().strftime("%M")
-    if int(Minutes) % 15 == 0:
-      if not MessagesChecked:
-        await CheckForMessage(CurrentDate)
-        MessagesChecked = True
-    else:
-      MessagesChecked = False
-    if not PrimaryUpdated:
-      try:
-        PrimaryUpdated = await PrimaryAPICheck(CurrentDate)
-        if ErrorMode:
-          if not PrimaryUpdated:
-            OldLED.on()
-          ErrorMode = False
-          ErrorLED.off()
-      except:
-        if not ErrorMode:
-          ErrorMode = True
-          OldLED.off()
-          NewLED.off()
-          ErrorLED.on()
-        PrintError()
-    if not SecondaryUpdated:
-      try:
-        SecondaryUpdated = await SecondaryAPICheck(PreviousDate)
-      except:
-        PrintError()
-    if not (PrimaryUpdated and SecondaryUpdated):
-      await asyncio.sleep(DelayTime)
-  if CurrentTime == TimeoutCondition and not (PrimaryUpdated or SecondaryUpdated):
-    ErrorMode = True
-    ErrorLED.on()
-    if not PrimaryUpdated:  
-      OldLED.off()
-      CurrentDate = "1970-01-01"
-      NewOutput = CurrentDisplay[0:4]
-      NewOutput[1] = "NO".center(20)
-      NewOutput[2] = "DATA".center(20)
-      NewOutput[3] = "TODAY".center(20)
-      WriteToMainLog("No data found. Committing to display.")
-      CommitDisplay(NewOutput)
-      CurrentDisplay = NewOutput[0:4]
-    await SendMessage(CurrentDate, "No data was found for this day. Timed out.")
-  await DiscordClient.change_presence(status=discord.Status.idle)
+  pass
 
-async def PrimaryAPICheck(Date):
-  global CurrentDisplay, DateOfCurrentData, LatestRecordFormatted
-  NewDisplay = CurrentDisplay[0:4]
-  WriteToMainLog("Updating primary. . .")
-  LastRecord = APIRequest("PRIMARY")
-  WriteToMainLog("Updated primary.")
-  Latest = False
-  if LastRecord["Date"] == Date:
-    WriteToMainLog("Verifying all primary metrics exist. . .")
-    if VerifyDataExists("PRIMARY", LastRecord):
-      WriteToMainLog("Primary verification passed.")
-      if LastRecord["Date"] == Date:
-        ParseData(LastRecord)
-        NewDisplay[1] = "{:,}".format(LatestRecordFormatted["Cases"]["New"]).rjust(10) + "|" + "{:,}".format(LatestRecordFormatted["Deaths"]["New"]).rjust(9)
-        NewDisplay[2] = "{:,}".format(LatestRecordFormatted["Cases"]["Total"]).rjust(10) + "|" + "{:,}".format(LatestRecordFormatted["Deaths"]["Total"]).rjust(9)
-        NewDisplay[3] = ""
-        if LatestRecordFormatted["Cases"]["Corrections"] != None:
-          NewDisplay[3] += "{:,}".format(LatestRecordFormatted["Cases"]["Corrections"]).rjust(10) + "|"
-        else:
-          NewDisplay[3] += "None".rjust(10) + "|"
-        if LatestRecordFormatted["Deaths"]["Corrections"] != None:
-          NewDisplay[3] += "{:,}".format(LatestRecordFormatted["Deaths"]["Corrections"]).rjust(9)
-        else:
-          NewDisplay[3] += "None".rjust(9)
-        CommitDisplay(NewDisplay)
-        OldLED.off()
-        NewLED.on()
-        WriteLastDisplay()
-        await SendData("PRIMARY", LatestRecordFormatted)
-        Latest = True
-        AddToAllData()
-      else:
-        DateOfCurrentData = LastRecord["Date"]
-        NewDisplay[1] = "{:,}".format(LastRecord["CasesNew"]).rjust(10) + "|" + "{:,}".format(LastRecord["DeathsNew"]).rjust(9)
-        NewDisplay[2] = "{:,}".format(LastRecord["CasesTotal"]).rjust(10) + "|" + "{:,}".format(LastRecord["DeathsTotal"]).rjust(9)
-        CommitDisplay(NewDisplay)
-        WriteLastDisplay()
-    else:
-      WriteToMainLog("Primary verification failed.")
-  return Latest
+async def PrimaryAPICheck():
+  pass
 
-async def SecondaryAPICheck(Date):
-  WriteToMainLog("Updating secondary. . .")
-  LastRecord = APIRequest("SECONDARY")
-  WriteToMainLog("Updated secondary.")
-  Latest = False
-  if LastRecord["Date"] == Date:
-    WriteToMainLog("Verifying all secondary metrics exist. . .")
-    if VerifyDataExists("SECONDARY", LastRecord):
-      WriteToMainLog("Secondary verification passed.")
-      await SendData("SECONDARY", LastRecord)
-      Latest = True
-    else:
-      WriteToMainLog("Secondary verification failed.")
-  return Latest
+async def SecondaryAPICheck():
+  pass
 
 def APIRequest(Structure):
-  if Structure.upper() == "PRIMARY":
-    return PrimaryAPI.get_json()["data"][0]
-  else:
-    return SecondaryAPI.get_json()["data"][0]
+  pass
 
 def VerifyDataExists(Structure, Data):
-  if Structure.upper() == "PRIMARY":
-    if type(Data["Date"]) is str:
-      if type(Data["CasesNew"]) is int:
-        if type(Data["DeathsNew"]) is int:
-          if type(Data["CasesTotal"]) is int:
-            if type(Data["DeathsTotal"]) is int:
-              return True
-    return False
-  elif Structure.upper() == "SECONDARY":
-    if type(Data["Date"]) is str:
-      if type(Data["VaccinationsFirstDoseNew"]) is int:
-        if type(Data["VaccinationsFirstDoseTotal"]) is int:
-          if type(Data["VaccinationsSecondDoseNew"]) is int:
-            if type(Data["VaccinationsSecondDoseTotal"]) is int:
-              return True
-    return False
+  pass
 
-# Mass Data Handling Procedures
-def ParseData(Data):
-  global LatestRecordFormatted
-  WriteToMainLog("Parsing primary data. . .")
-  LatestRecordFormatted["Date"] = Data["Date"]
-  LatestRecordFormatted["Day"] = datetime.strptime(Data["Date"], "%Y-%m-%d").weekday()
-  LatestRecordFormatted["Cases"]["New"] = Data["CasesNew"]
-  LatestRecordFormatted["Deaths"]["New"] = Data["DeathsNew"]
-  LatestRecordFormatted["Cases"]["Total"] = Data["CasesTotal"]
-  LatestRecordFormatted["Deaths"]["Total"] = Data["DeathsTotal"]
-  LatestRecordFormatted["CaseFatality"]["Rate"] = Data["DeathsTotal"] / Data["CasesTotal"]
+# Data Store Refresh & Verification Procedures
+def VerifyMassData(ReloadIfFail = True):
+  WriteToMainLog("Verifying mass data store integrity. . .")
   AllData = GetAllData()
-  if AllData[0]["CaseFatality"]["Rate"] != None:
-    LatestRecordFormatted["CaseFatality"]["Change"] = LatestRecordFormatted["CaseFatality"]["Rate"] - AllData[0]["CaseFatality"]["Rate"]
-  if AllData[0]["Cases"]["New"] != None:
-    LatestRecordFormatted["Cases"]["Change"] = Data["CasesNew"] - AllData[0]["Cases"]["New"]
-    if AllData[0]["Cases"]["Total"] != None:
-      LatestRecordFormatted["Cases"]["Corrections"] = Data["CasesTotal"] - (Data["CasesNew"] + AllData[0]["Cases"]["Total"])
-  if AllData[0]["Deaths"]["New"] != None:
-    LatestRecordFormatted["Deaths"]["Change"] = Data["DeathsNew"] - AllData[0]["Deaths"]["New"]
-    if AllData[0]["Deaths"]["Total"] != None:
-      LatestRecordFormatted["Deaths"]["Corrections"] = Data["DeathsTotal"] - (Data["DeathsNew"] + AllData[0]["Deaths"]["Total"])
-  CalculateRollingAverages(3, AllData, Data)
-  CalculateRollingAverages(7, AllData, Data)
-  WriteToMainLog("Done.")
+  DateToCheck = (date.today() - timedelta(days=1))
+  for i in range(len(AllData)):
+    while ExcludedDates.__contains__(DateToCheck):
+      DateToCheck -= timedelta(days=1)
+    if AllData[i]["Date"] != DateToCheck:
+      if i == 0 and AllData[i]["Date"] != date.today().isoformat():
+        WriteToMainLog("Mass data store data not valid.")
+        if ReloadIfFail:
+          ReloadMassData()
+        return False
+    else:
+      DateToCheck -= timedelta(days=1)
+  WriteToMainLog("Mass data store data valid.")
+  return True
 
-def GetAllData():
-  with open(AllDataFilename, 'r') as AllDataFile:
-    AllData = loads(AllDataFile.read())
+def ReloadMassData():
+  global AllDataAPI, DataAggregationTemplate
+  WriteToMainLog("Beginning mass data reload. . .")
+  WriteToMainLog("Requesting data from API. . .")
+  DataFromAPI = None
+  while DataFromAPI == None:
+    try:
+      DataFromAPI = AllDataAPI.get_json()["data"]
+    except:
+      PrintError()
+  AllData = []
+  WriteToMainLog("Data obtained from API. Formatting mass data. . .")
+  for i in range(len(DataFromAPI)):
+    CurrentRecordFormatting = loads(dumps(DataAggregationTemplate))
+    CurrentRecordFormatting["Date"] = DataFromAPI[i]["Date"]
+    CurrentRecordFormatting["Day"] = datetime.strptime(DataFromAPI[i]["Date"], "%Y-%m%d").weekday()
+    CurrentRecordFormatting["Cases"]["New"] = DataFromAPI[i]["CasesNew"]
+    CurrentRecordFormatting["Cases"]["Total"] = DataFromAPI[i]["CasesTotal"]
+    CurrentRecordFormatting["Deaths"]["New"] = DataFromAPI[i]["DeathsNew"]
+    CurrentRecordFormatting["Deaths"]["Total"] = DataFromAPI[i]["DeathsTotal"]
+    if DataFromAPI[i]["CasesTotal"] != None and DataFromAPI[i]["DeathsTotal"] != None:
+      CurrentRecordFormatting["CaseFatality"]["Rate"] = DataFromAPI[i]["DeathsTotal"] / DataFromAPI[i]["CasesTotal"]
+    AllData.append(CurrentRecordFormatting)
+  WriteToMainLog("Mass data formatted. Calculating rolling averages & daily change. . .")
+  AllData = CalculateRollingAveragesAndDailyChange(AllData)
+  WriteToMainLog("Rolling averages & daily change calculated. Calculating rolling average peaks. . .")
+  RollAvgPeaks = CalculateRollAvgPeaks(AllData)
+  WriteToMainLog("Rolling average peaks calculated. Committing to file. . .")
+  CommitToFile(AllData, RollAvgPeaks)
+  WriteToMainLog("Committed to file.")
+
+def CalculateRollingAveragesAndDailyChange(AllData):
+  for i in range(len(AllData)):
+    if i <= len(AllData) - 7:
+      RollingAverageLength = "Seven"
+      CasesRollingAverage = AllData[i]["Cases"]["New"]
+      DeathsRollingAverage = AllData[i]["Deaths"]["New"]
+      for k in range(1, 7):
+        if CasesRollingAverage != None:
+          if AllData[i + k]["Cases"]["New"] != None:
+            CasesRollingAverage += AllData[i + k]["Cases"]["New"]
+          else:
+            CasesRollingAverage = None
+        if DeathsRollingAverage != None:
+          if AllData[i + k]["Deaths"]["New"] != None:
+            DeathsRollingAverage += AllData[i + k]["Deaths"]["New"]
+          else:
+            DeathsRollingAverage = None
+      if CasesRollingAverage != None:
+        CasesRollingAverage /= 7
+        AllData[i]["Cases"]["RollingAverage"][RollingAverageLength]["Average"] = CasesRollingAverage
+      if DeathsRollingAverage != None:
+        DeathsRollingAverage /= 7
+        AllData[i]["Deaths"]["RollingAverage"][RollingAverageLength]["Average"] = DeathsRollingAverage
+    if i <= len(AllData) - 3:
+      RollingAverageLength = "Three"
+      CasesRollingAverage = AllData[i]["Cases"]["New"]
+      DeathsRollingAverage = AllData[i]["Deaths"]["New"]
+      for k in range(1, 7):
+        if CasesRollingAverage != None:
+          if AllData[i + k]["Cases"]["New"] != None:
+            CasesRollingAverage += AllData[i + k]["Cases"]["New"]
+          else:
+            CasesRollingAverage = None
+        if DeathsRollingAverage != None:
+          if AllData[i + k]["Deaths"]["New"] != None:
+            DeathsRollingAverage += AllData[i + k]["Deaths"]["New"]
+          else:
+            DeathsRollingAverage = None
+      if CasesRollingAverage != None:
+        CasesRollingAverage /= 3
+        AllData[i]["Cases"]["RollingAverage"][RollingAverageLength]["Average"] = CasesRollingAverage
+      if DeathsRollingAverage != None:
+        DeathsRollingAverage /= 3
+        AllData[i]["Deaths"]["RollingAverage"][RollingAverageLength]["Average"] = DeathsRollingAverage
+    if i < len(AllData) - 1:
+      if AllData[i]["Cases"]["New"] != None and AllData[i + 1]["Cases"]["New"] != None:
+        AllData[i]["Cases"]["Change"] = AllData[i]["Cases"]["New"] - AllData[i + 1]["Cases"]["New"]
+        AllData[i]["Cases"]["Corrections"] = AllData[i]["Cases"]["Total"] - (AllData[i]["Cases"]["New"] + AllData[i + 1]["Cases"]["Total"])
+      if AllData[i]["Deaths"]["New"] != None and AllData[i + 1]["Deaths"]["New"] != None:
+        AllData[i]["Deaths"]["Change"] = AllData[i]["Deaths"]["New"] - AllData[i + 1]["Deaths"]["New"]
+        AllData[i]["Deaths"]["Corrections"] = AllData[i]["Deaths"]["Total"] - (AllData[i]["Deaths"]["New"] + AllData[i + 1]["Deaths"]["Total"])
+      if AllData[i]["CaseFatality"]["Rate"] != None and AllData[i + 1]["CaseFatality"]["Rate"] != None:
+        AllData[i]["CaseFatality"]["Change"] = AllData[i]["CaseFatality"]["Rate"] - AllData[i + 1]["CaseFatality"]["Rate"]
+      if AllData[i + 1]["Cases"]["RollingAverages"]["Three"]["Average"] != None:
+        AllData[i]["Cases"]["RollingAverages"]["Three"]["Change"] = AllData[i]["Cases"]["RollingAverages"]["Three"]["Average"] - AllData[i + 1]["Cases"]["RollingAverages"]["Three"]["Average"]
+      if AllData[i + 1]["Cases"]["RollingAverages"]["Seven"]["Average"] != None:
+        AllData[i]["Cases"]["RollingAverages"]["Seven"]["Change"] = AllData[i]["Cases"]["RollingAverages"]["Seven"]["Average"] - AllData[i + 1]["Cases"]["RollingAverages"]["Seven"]["Average"]
+      if AllData[i + 1]["Deaths"]["RollingAverages"]["Three"]["Average"] != None:
+        AllData[i]["Deaths"]["RollingAverages"]["Three"]["Change"] = AllData[i]["Deaths"]["RollingAverages"]["Three"]["Average"] - AllData[i + 1]["Deaths"]["RollingAverages"]["Three"]["Average"]
+      if AllData[i + 1]["Deaths"]["RollingAverages"]["Seven"]["Average"] != None:
+        AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Change"] = AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Average"] - AllData[i + 1]["Deaths"]["RollingAverages"]["Seven"]["Average"]
   return AllData
 
-def CalculateRollingAverages(NumOfDays, AllData, NewData):
-  WriteToMainLog("Calculating Rolling Average of length " + str(NumOfDays))
-  if NumOfDays == 3:
-    RollingAverageLength = "Three"
-  else:
-    RollingAverageLength = "Seven"
-  CasesRollingAverage = NewData["CasesNew"]
-  DeathsRollingAverage = NewData["DeathsNew"]
-  for i in range(NumOfDays - 1):
-    if CasesRollingAverage != None:
-      if AllData[i]["Cases"]["New"] != None:
-        CasesRollingAverage += AllData[i]["Cases"]["New"]
-      else:
-        CasesRollingAverage = None
-    if DeathsRollingAverage != None:
-      if AllData[i]["Deaths"]["New"] != None:
-        DeathsRollingAverage += AllData[i]["Deaths"]["New"]
-      else:
-        DeathsRollingAverage = None
-  if CasesRollingAverage != None:
-    CasesRollingAverage /= NumOfDays
-    LatestRecordFormatted["Cases"]["RollingAverages"][RollingAverageLength]["Average"] = CasesRollingAverage
-    if AllData[0]["Cases"]["RollingAverages"][RollingAverageLength]["Average"] != None:
-      LatestRecordFormatted["Cases"]["RollingAverages"][RollingAverageLength]["Change"] = CasesRollingAverage - AllData[0]["Cases"]["RollingAverages"][RollingAverageLength]["Average"]
-  if DeathsRollingAverage != None:
-    DeathsRollingAverage /= NumOfDays
-    LatestRecordFormatted["Deaths"]["RollingAverages"][RollingAverageLength]["Average"] = DeathsRollingAverage
-    if AllData[0]["Deaths"]["RollingAverages"][RollingAverageLength]["Average"] != None:
-      LatestRecordFormatted["Deaths"]["RollingAverages"][RollingAverageLength]["Change"] = DeathsRollingAverage - AllData[0]["Deaths"]["RollingAverages"][RollingAverageLength]["Average"]
-
-def AddToAllData():
-  global LatestRecordFormatted
-  ExistingData = GetAllData()
-  WriteToMainLog("Adding to all data record. . .")
-  if ExistingData[0]["Date"] == LatestRecordFormatted["Date"]:
-    WriteToMainLog("Latest record already exists in file.")
-  else:
-    with open(AllDataFilename, 'w') as AllDataFile:
-      AllDataFile.write("[\n")
-      Output = "  " + dumps(LatestRecordFormatted) + ",\n"
-      AllDataFile.write(Output)
-      for i in range(len(ExistingData)):
-        Output = "  " + dumps(ExistingData[i])
-        if i != len(ExistingData) - 1:
-          Output += ",\n"
-        AllDataFile.write(Output)
-      AllDataFile.write("\n]")
-  WriteToMainLog("Done.")
-
-async def CheckRollAvgPeaks():
-  global LatestRecordFormatted
-  WriteToMainLog("Checking rolling average peaks. . .")
-  with open(RollAvgPeaksFilename, 'r') as RollAvgPeaksFile:
-    RollAvgPeaks = loads(RollAvgPeaksFile.read())
-  ChangesMade = False
-  CasesRAPeak = False
-  DeathsRAPeak = False
-  Output = ""
-  MessagesTemplate = {
+def CalculateRollAvgPeaks(AllData):
+  RollAvgPeaks = {
     "Cases": {
-      "PeakLocal": "New local RA(7, 'C') peak.",
-      "PeakGlobal": "New global RA(7, 'C') peak.",
-      "LocalCreated": "New local RA(7, 'C') record created.",
-      "GlobalCreated": "New global RA(7 ,'C') record created.",
-      "LocalExpired": "Local RA(7, 'C') peak expired."
+      "Local": {
+        "Date": None,
+        "Value": None
+      },
+      "Global": {
+        "Date": None,
+        "Value": None
+      }
     },
     "Deaths": {
-      "PeakLocal": "New local RA(7, 'D') peak.",
-      "PeakGlobal": "New global RA(7, 'D') peak.",
-      "LocalCreated": "New local RA(7, 'D') record created.",
-      "GlobalCreated": "New global RA(7 ,'D') record created.",
-      "LocalExpired": "Local RA(7, 'D') peak expired."
+      "Local": {
+        "Date": None,
+        "Value": None
+      },
+      "Global": {
+        "Date": None,
+        "Value": None
+      }
     }
   }
-  if type(RollAvgPeaks["Cases"]["Global"]["Value"]) is float:
-    if LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"] > RollAvgPeaks["Cases"]["Global"]["Value"]:
-      ChangesMade = True
-      CasesRAPeak = True
-      if Output != "":
-        Output += "\n"
-      Output += MessagesTemplate["Cases"]["PeakGlobal"]
-      RollAvgPeaks["Cases"]["Global"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Cases"]["Global"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-      RollAvgPeaks["Cases"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Cases"]["Local"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-  else:
-    ChangesMade = True
-    CasesRAPeak = True
-    if Output != "":
-      Output += "\n"
-    Output += MessagesTemplate["Cases"]["GlobalCreated"] + "\n" + MessagesTemplate["Cases"]["PeakGlobal"]
-    RollAvgPeaks["Cases"]["Global"]["Date"] = LatestRecordFormatted["Date"]
-    RollAvgPeaks["Cases"]["Global"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-    RollAvgPeaks["Cases"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-    RollAvgPeaks["Cases"]["Local"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-  if RollAvgPeaks["Cases"]["Local"]["Value"] == None:
-    if LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
-      AllData = GetAllData()
-      NumPositives = 1
-      while AllData[NumPositives]["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
-        NumPositives += 1
-      if NumPositives >= 7:
-        if Output != "":
-          Output += "\n"
-        Output += MessagesTemplate["Cases"]["LocalCreated"] + "\n" + MessagesTemplate["Cases"]["PeakLocal"]
-        ChangesMade = True
+  for i in range(len(AllData), -1, -1):
+    CasesRA = AllData[i]["Cases"]["RollingAverages"]["Seven"]["Average"]
+    DeathsRA = AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Average"]
+    CasesRAPeak = False
+    DeathsRAPeak = False
+    if CasesRA != None:
+      if type(RollAvgPeaks["Cases"]["Global"]["Value"]) is float:
+        if CasesRA > RollAvgPeaks["Cases"]["Global"]["Value"]:
+          RollAvgPeaks["Cases"]["Global"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Cases"]["Global"]["Value"] = CasesRA
+          RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
+          CasesRAPeak = True
+      else:
         CasesRAPeak = True
-        RollAvgPeaks["Cases"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-        RollAvgPeaks["Cases"]["Local"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-  if not CasesRAPeak and type(RollAvgPeaks["Cases"]["Local"]["Value"]) is float:
-    if LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"] > RollAvgPeaks["Cases"]["Local"]["Value"]:
-      ChangesMade = True
-      CasesRAPeak = True
-      if Output != "":
-        Output += "\n"
-      Output += MessagesTemplate["Cases"]["PeakLocal"]
-      RollAvgPeaks["Cases"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Cases"]["Local"]["Value"] = LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Average"]
-  if type(RollAvgPeaks["Deaths"]["Global"]["Value"]) is float:
-    if LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"] > RollAvgPeaks["Deaths"]["Global"]["Value"]:
-      ChangesMade = True
-      DeathsRAPeak = True
-      if Output != "":
-        Output += "\n"
-      Output += MessagesTemplate["Deaths"]["PeakGlobal"]
-      RollAvgPeaks["Deaths"]["Global"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Deaths"]["Global"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-      RollAvgPeaks["Deaths"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Deaths"]["Local"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-  else:
-    ChangesMade = True
-    DeathsRAPeak = True
-    if Output != "":
-      Output += "\n"
-    Output += MessagesTemplate["Deaths"]["GlobalCreated"] + "\n" + MessagesTemplate["Deaths"]["PeakGlobal"]
-    RollAvgPeaks["Deaths"]["Global"]["Date"] = LatestRecordFormatted["Date"]
-    RollAvgPeaks["Deaths"]["Global"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-    RollAvgPeaks["Deaths"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-    RollAvgPeaks["Deaths"]["Local"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-  if RollAvgPeaks["Deaths"]["Local"]["Value"] == None:
-    if LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
-      AllData = GetAllData()
-      NumPositives = 1
-      while AllData[NumPositives]["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
-        NumPositives += 1
-      if NumPositives >= 7:
-        if Output != "":
-          Output += "\n"
-        Output += MessagesTemplate["Deaths"]["LocalCreated"] + "\n" + MessagesTemplate["Deaths"]["PeakLocal"]
-        ChangesMade = True
+        RollAvgPeaks["Cases"]["Global"]["Date"] = AllData[i]["Date"]
+        RollAvgPeaks["Cases"]["Global"]["Value"] = CasesRA
+        RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
+        RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
+      if RollAvgPeaks["Cases"]["Local"]["Value"] == None:
+        if AllData[i]["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
+          NumPositives = 1
+          while AllData[i + NumPositives]["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
+            NumPositives += 1
+          if NumPositives >= 7:
+            CasesRAPeak = True
+            RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
+            RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
+      if not CasesRAPeak and type(RollAvgPeaks["Cases"]["Local"]["Value"]) is float:
+        if CasesRA > RollAvgPeaks["Cases"]["Local"]["Value"]:
+          CasesRAPeak = True
+          RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
+      if not CasesRAPeak and RollAvgPeaks["Cases"]["Local"]["Date"] != None:
+        if AllData[i]["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
+          DateOfLastLocal = datetime.strptime(RollAvgPeaks["Cases"]["Local"]["Date"], "%Y-%m-%d")
+          DateOfCurrentData = datetime.strptime(AllData[i]["Date"], "%Y-%m-%d")
+          if DateOfCurrentData - DateOfLastLocal >= timedelta(days=10):
+            NumNegatives = 1
+            while AllData[i + NumNegatives]["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
+              NumNegatives += 1
+            if NumNegatives >= 10:
+              ChangesMade = True
+              RollAvgPeaks["Cases"]["Local"]["Date"] = None
+              RollAvgPeaks["Cases"]["Local"]["Value"] = None  
+    if DeathsRA != None:
+      if type(RollAvgPeaks["Deaths"]["Global"]["Value"]) is float:
+        if DeathsRA > RollAvgPeaks["Deaths"]["Global"]["Value"]:
+          DeathsRAPeak = True
+          RollAvgPeaks["Deaths"]["Global"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Deaths"]["Global"]["Value"] = DeathsRA
+          RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
+      else:
         DeathsRAPeak = True
-        RollAvgPeaks["Deaths"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-        RollAvgPeaks["Deaths"]["Local"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-  if not DeathsRAPeak and type(RollAvgPeaks["Deaths"]["Local"]["Value"]) is float:
-    if LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"] > RollAvgPeaks["Deaths"]["Local"]["Value"]:
-      ChangesMade = True
-      DeathsRAPeak = True
-      if Output != "":
-        Output += "\n"
-      Output += MessagesTemplate["Deaths"]["PeakLocal"]
-      RollAvgPeaks["Deaths"]["Local"]["Date"] = LatestRecordFormatted["Date"]
-      RollAvgPeaks["Deaths"]["Local"]["Value"] = LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Average"]
-  if not CasesRAPeak and RollAvgPeaks["Cases"]["Local"]["Date"] != None:
-    if LatestRecordFormatted["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
-      DateOfLastLocal = datetime.strptime(RollAvgPeaks["Cases"]["Local"]["Date"], "%Y-%m-%d")
-      CurrentDate = datetime.strptime(LatestRecordFormatted["Date"], "%Y-%m-%d")
-      if CurrentDate - DateOfLastLocal >= timedelta(days=10):
-        AllData = GetAllData()
-        NumNegatives = 1
-        while AllData[NumNegatives]["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
-          NumNegatives += 1
-        if NumNegatives >= 10:
-          ChangesMade = True
-          RollAvgPeaks["Cases"]["Local"]["Date"] = None
-          RollAvgPeaks["Cases"]["Local"]["Value"] = None
-          if Output != "":
-            Output += "\n"
-          Output += MessagesTemplate["Cases"]["LocalExpired"]
-  if not DeathsRAPeak and RollAvgPeaks["Deaths"]["Local"]["Date"] != None:
-    if LatestRecordFormatted["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
-      DateOfLastLocal = datetime.strptime(RollAvgPeaks["Deaths"]["Local"]["Date"], "%Y-%m-%d")
-      CurrentDate = datetime.strptime(LatestRecordFormatted["Date"], "%Y-%m-%d")
-      if CurrentDate - DateOfLastLocal >= timedelta(days=10):
-        AllData = GetAllData()
-        NumNegatives = 1
-        while AllData[NumNegatives]["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
-          NumNegatives += 1
-        if NumNegatives >= 10:
-          ChangesMade = True
-          RollAvgPeaks["Deaths"]["Local"]["Date"] = None
-          RollAvgPeaks["Deaths"]["Local"]["Value"] = None
-          if Output != "":
-            Output += "\n"
-          Output += MessagesTemplate["Deaths"]["LocalExpired"]
-  if ChangesMade:
-    with open(RollAvgPeaksFilename, 'w') as RollAvgPeaksFile:
-      RollAvgPeaksFile.write("{\n")
-      RollAvgPeaksFile.write("  \"Cases\": " + dumps(RollAvgPeaks["Cases"]) + ",\n")
-      RollAvgPeaksFile.write("  \"Deaths\": " + dumps(RollAvgPeaks["Deaths"]))
-      RollAvgPeaksFile.write("\n}")
-  if Output == "":
-    Output = "No peaks today."
-  await SendNotification(Output)
-  WriteToMainLog("Done.")
+        RollAvgPeaks["Deaths"]["Global"]["Date"] = AllData[i]["Date"]
+        RollAvgPeaks["Deaths"]["Global"]["Value"] = DeathsRA
+        RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
+        RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
+      if RollAvgPeaks["Deaths"]["Local"]["Value"] == None:
+        if AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
+          NumPositives = 1
+          while AllData[i + NumPositives]["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
+            NumPositives += 1
+          if NumPositives >= 7:
+            DeathsRAPeak = True
+            RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
+            RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
+      if not DeathsRAPeak and type(RollAvgPeaks["Deaths"]["Local"]["Value"]) is float:
+        if DeathsRA > RollAvgPeaks["Deaths"]["Local"]["Value"]:
+          DeathsRAPeak = True
+          RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
+      if not DeathsRAPeak and RollAvgPeaks["Deaths"]["Local"]["Date"] != None:
+        if AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
+          DateOfLastLocal = datetime.strptime(RollAvgPeaks["Deaths"]["Local"]["Date"], "%Y-%m-%d")
+          DateOfCurrentData = datetime.strptime(AllData[i]["Date"], "%Y-%m-%d")
+          if DateOfCurrentData - DateOfLastLocal >= timedelta(days=10):
+            NumNegatives = 1
+            while AllData[i + NumNegatives]["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
+              NumNegatives += 1
+            if NumNegatives >= 10:
+              RollAvgPeaks["Deaths"]["Local"]["Date"] = None
+              RollAvgPeaks["Deaths"]["Local"]["Value"] = None
+  return RollAvgPeaks
+
+def CommitToFile(AllData, RollAvgPeaks):
+  with open(Files["AllData"]) as AllDataFile:
+    AllDataFile.write("[\n")
+    for i in range(len(AllData)):
+      AllDataFile.write("  " + dumps(AllData[i]))
+      if i != len(AllData) - 1:
+        AllDataFile.write(",\n")
+    AllDataFile.write("\n]")
+  with open(Files["RollAvgPeaks"]) as RollAvgPeaksFile:
+    RollAvgPeaksFile.write("[\n")
+    RollAvgPeaksFile.write("  \"Cases\": " + dumps(RollAvgPeaks["Cases"] + ",\n"))
+    RollAvgPeaksFile.write("  \"Deaths\": " + dumps(RollAvgPeaks["Deaths"]) + "\n")
+    RollAvgPeaksFile.write("]")
+
+# Mass Data Handling Procedures
+def GetAllData():
+  pass
+
+def ParseData(Data):
+  pass
+
+def CalculateRollingAverages(NumOfDays, AllData, NewData):
+  pass
+
+def AddToAllData():
+  pass
+
+async def CheckRollAvgPeaks():
+  pass
 
 def FindLastHighest(AllData, CheckData, Metric, StartingIndex = 0):
-  LastHighestDate = "#N/A; all time highest"
-  if Metric == "CASES":
-    if type(CheckData["Cases"]["New"]) is int:
-      for i in range(StartingIndex, len(AllData)):
-        CurrentIndex = AllData[i]
-        if type(CurrentIndex["Cases"]["New"]) is int:
-          if CurrentIndex["Cases"]["New"] > CheckData["Cases"]["New"]:
-            LastHighestDate = CurrentIndex["Date"] + "; " + "{:,}".format(CurrentIndex["Cases"]["New"])
-            break
-    else:
-      LastHighestDate = "None"
-  if Metric == "DEATHS":
-    if type(CheckData["Deaths"]["New"]) is int:
-      for i in range(StartingIndex, len(AllData)):
-        CurrentIndex = AllData[i]
-        if type(CurrentIndex["Deaths"]["New"]) is int:
-          if CurrentIndex["Deaths"]["New"] > CheckData["Deaths"]["New"]:
-            LastHighestDate = CurrentIndex["Date"] + "; " + "{:,}".format(CurrentIndex["Deaths"]["New"])
-            break
-    else:
-      LastHighestDate = "None"
-  return LastHighestDate
+  pass
 
 def GetArrow(Value):
-  UpArrow = '\u2B06'
-  RightArrow = '\u27A1'
-  DownArrow = '\u2B07'
-  Output = " "
-  if Value == 0:
-    Output += RightArrow
-  elif Value > 0:
-    Output += UpArrow
-  elif Value < 0:
-    Output += DownArrow
-  return Output
+  pass
+
+def VerifyDate(Date):
+  pass
 
 # COVID Pi Procedures
 def CommitDisplay(NewDisplay):
-  global CurrentDisplay
-  Display.lcd_clear()
-  for i in range(len(NewDisplay)):
-    if NewDisplay[i] != "X":
-      Display.lcd_display_string(NewDisplay[i], i+1)
-  WriteToMainLog("Display refreshed.")
-  CurrentDisplay = NewDisplay[0:4]
+  pass
 
 def WriteLastDisplay():
-  global ErrorMode
-  with open(LastOutputFilename, 'w') as LastOutputFile:
-    LastOutputFile.write(LatestRecordFormatted["Date"] + "," + str(ErrorMode) + "\n")
-    for i in range(len(CurrentDisplay)):
-      LastOutputFile.write(CurrentDisplay[i] + "\n")
-  WriteToMainLog("Current output written to file.")
+  pass
 
 # Discord Procedures
 @DiscordClient.event
 async def on_ready():
-  WriteToMainLog("We have logged in as {0.user}".format(DiscordClient))
+  pass
 
 @DiscordClient.event
 async def on_message(Message):
-  try:
-    if Message.channel == DiscordClient.get_channel(id=ChannelID) and len(Message.content) > 0:
-      if Message.content[0] == "$":
-        WriteToMainLog("Command received.")
-        if Message.content.upper().startswith("$GETDATA"):
-          Command = Message.content.split(' ')
-          if len(Command) == 2:
-            if VerifyDate(Command[1]):
-              WriteToMainLog("Data requested for " + Command[1])
-              AllData = GetAllData()
-              DataFound = False
-              for i in range(len(AllData)):
-                if AllData[i]["Date"] == Command[1]:
-                  DataFound = True
-                  await SendData("PRIMARY", AllData[i], i)
-                  break
-              if not DataFound:
-                await Message.channel.send("No data was found for that day.")
-            elif Command[1] == "latest":
-              WriteToMainLog("Latest data requested.")
-              AllData = GetAllData()
-              await SendData("PRIMARY", AllData[0])
-            else:
-              await Message.channel.send("`$getdata` command supports date only in ISO 8601 format or \"latest\" for latest data.")
-          else:
-            await Message.channel.send("`$getdata` command takes exactly one argument.")
-        elif Message.content.upper().startswith("$MESSAGES"):
-          if not await CheckForMessage(IgnoreSent=True):
-            await Message.channel.send("No messages for today yet.")
-        elif Message.content.upper().startswith("$RAVGPEAKS"):
-          Command = Message.content.split(' ')
-          Output = "```"
-          if len(Command) <= 3:
-            with open(RollAvgPeaksFilename, 'r') as RollAvgPeaksFile:
-              RollAvgPeaks = loads(RollAvgPeaksFile.read())
-          if len(Command) == 1:
-            Output += "\nRolling Average Peaks (7-Day):"
-            Output += "\n  Cases:"
-            Output += "\n    Local:"
-            Output += "\n      Average: {:,}".format(round(RollAvgPeaks["Cases"]["Local"]["Value"], 3))
-            Output += "\n      Date:    " + RollAvgPeaks["Cases"]["Local"]["Date"]
-            Output += "\n    Global:"
-            Output += "\n      Average: {:,}".format(round(RollAvgPeaks["Cases"]["Global"]["Value"], 3))
-            Output += "\n      Date:    " + RollAvgPeaks["Cases"]["Global"]["Date"]
-            Output += "\n  Deaths:"
-            Output += "\n    Local:"
-            Output += "\n      Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Local"]["Value"], 3))
-            Output += "\n      Date:    " + RollAvgPeaks["Deaths"]["Local"]["Date"]
-            Output += "\n    Global:"
-            Output += "\n      Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Global"]["Value"], 3))
-            Output += "\n      Date:    " + RollAvgPeaks["Deaths"]["Global"]["Date"]
-          elif len(Command) == 2:
-            if Command[1].upper() == "CASES":
-              Output += "\nCases Rolling Average Peaks (7-Day):"
-              Output += "\n  Local:"
-              Output += "\n    Average: {:,}".format(round(RollAvgPeaks["Cases"]["Local"]["Value"], 3))
-              Output += "\n    Date:    " + RollAvgPeaks["Cases"]["Local"]["Date"]
-              Output += "\n  Global:"
-              Output += "\n    Average: {:,}".format(round(RollAvgPeaks["Cases"]["Global"]["Value"], 3))
-              Output += "\n    Date:    " + RollAvgPeaks["Cases"]["Global"]["Date"]
-            elif Command[1].upper() == "DEATHS":
-              Output += "\nDeaths Rolling Average Peaks (7-Day):"
-              Output += "\n  Local:"
-              Output += "\n    Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Local"]["Value"], 3))
-              Output += "\n    Date:    " + RollAvgPeaks["Deaths"]["Local"]["Date"]
-              Output += "\n  Global:"
-              Output += "\n    Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Global"]["Value"], 3))
-              Output += "\n    Date:    " + RollAvgPeaks["Deaths"]["Global"]["Date"]
-            elif Command[1].upper() == "HELP":
-              Output += "\nCommand format: $ravgpeaks [Metric] [Length]"
-              Output += "\nMetric and Length parameters are optional.\n"
-              Output += "\nValid inputs for Metric:"
-              Output += "\n  Cases: return rolling average peaks for cases."
-              Output += "\n  Deaths: return rolling average peaks for deaths.\n"
-              Output += "\nValid inputs for Length:"
-              Output += "\n  Local: returns the current local peak, or none if no peak."
-              Output += "\n  Global: returns the current all-time global peak, or none if no peak."
-            else:
-              Output = "Invalid metric: " + Command[1]
-          elif len(Command) == 3:
-            if Command[1].upper() == "CASES":
-              if Command[2].upper() == "LOCAL":
-                Output += "\nCases Local Rolling Average Peaks (7-Day):"
-                Output += "\n  Average: {:,}".format(round(RollAvgPeaks["Cases"]["Local"]["Value"], 3))
-                Output += "\n  Date:    " + RollAvgPeaks["Cases"]["Local"]["Date"]
-              elif Command[2].upper() == "GLOBAL":
-                Output += "\nCases Global Rolling Average Peaks (7-Day):"
-                Output += "\n  Average: {:,}".format(round(RollAvgPeaks["Cases"]["Global"]["Value"], 3))
-                Output += "\n  Date:    " + RollAvgPeaks["Cases"]["Global"]["Date"]
-              else:
-                Output = "Invalid length: " + Command[2]
-            elif Command[1].upper() == "DEATHS":
-              if Command[2].upper() == "LOCAL":
-                Output += "\nDeaths Local Rolling Average Peaks (7-Day):"
-                Output += "\n  Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Local"]["Value"], 3))
-                Output += "\n  Date:    " + RollAvgPeaks["Deaths"]["Local"]["Date"]
-              elif Command[2].upper() == "GLOBAL":
-                Output += "\nDeaths Global Rolling Average Peaks (7-Day):"
-                Output += "\n  Average: {:,}".format(round(RollAvgPeaks["Deaths"]["Global"]["Value"], 3))
-                Output += "\n  Date:    " + RollAvgPeaks["Deaths"]["Global"]["Date"]
-              else:
-                Output = "Invalid length: " + Command[2]
-            else:
-              Output = "Invalid metric: " + Command[1]
-          if Output.split('\n')[0] == "```":
-            Output += "\n\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change."
-            Output += "\n```"
-          await SendNotification(Output)
-        elif Message.content.upper().startswith("$VARIANT"):
-          await VariantLookup(Message)
-        elif Message.content.upper().startswith("$VERSION"):
-          Changelog = [
-            "1. API: Reverted change 1 from Version 6.5.",
-            "2. Configuration: Replaced Discord.txt for Discord.json."
-          ]
-          Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version " + VersionNum + ".\n"
-          Output += "Changelog:\n"
-          for i in range(len(Changelog)):
-            Output += "  " + Changelog[i] + "\n"
-          await Message.channel.send(Output)
-        else:
-          Output = ""
-          Output += "\nCommand syntax:"
-          Output += "\n  $getdata [date/\'latest\']: Returns the primary data from the date specfied"
-          Output += "\n    date: A date given in ISO 8601 (YYYY-MM-DD) form."
-          Output += "\n    \'latest\': The literal word, returns the latest data available."
-          Output += "\n  $messages: Outputs any messages for the current day."
-          Output += "\n  $ravgpeaks: Displays the latest rolling average peaks. Refer to $ravgpeaks help."
-          Output += "\n  $variant: Returns variant information based on commands specified. Refer to $variant help."
-          Output += "\n  $version: Shows current bot version and changelog from previous version."
-          await Message.channel.send(Output)
-      elif Message.content.lower() == "good bot":
-        await Message.channel.send("Much thank")
-  except:
-    PrintError()
-    await SendNotification("Unhandled exception occured when parsing your request. Please pester the bot admin for a solution.")
+  pass
 
 @DiscordClient.event
 async def on_message_edit(BeforeMessage, AfterMessage):
-  if BeforeMessage.content != AfterMessage.content:
-    await on_message(AfterMessage)
+  pass
 
 async def WaitForDiscord():
-  global ErrorMode
-  SuccessfulWait = False
-  try:
-    while not SuccessfulWait:
-      WriteToMainLog("Waiting for discord bot to be ready. . .")
-      await DiscordClient.wait_until_ready()
-      WriteToMainLog("Done.")
-      SuccessfulWait = True
-  except:
-    PrintError()
-    if not ErrorMode:
-      ErrorLED.on()
-      ErrorMode = True
-    await asyncio.sleep(15)
-  if ErrorMode:
-    ErrorMode = False
-    ErrorLED.off()
-
-def VerifyDate(Date):
-  try:
-    return datetime.strptime(Date, "%Y-%m-%d")
-  except ValueError: 
-    return False
+  pass
 
 @DiscordClient.event
 async def SendData(Structure, Data, Index = 0):
-  await WaitForDiscord()
-  WriteToMainLog("Sending Discord message for " + Structure.lower() + " structure. . .")
-  Channel = DiscordClient.get_channel(id=ChannelID)
-  DateStamp = datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T')
-  Weekdays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday"
-  ]
-  RedCross = '\u274C'
-  CasesDot = '\U0001F535'
-  DeathsDot = '\U0001F534'
-  CFRDot = '\U0001F7E1'
-  SecondaryDot = '\U0001F7E2'
-  ShowLastHighest = False
-  if os.path.isfile(AllDataFilename):
-    AllData = GetAllData()
-    ShowLastHighest = True
-  Output = "```\n"
-  if Structure == "PRIMARY":
-    Output += "PRIMARY DATA FOR " + Data["Date"] + ", " + Weekdays[Data["Day"]]
-    Output += "\n" + CasesDot + "Cases:"
-    CasesData = Data["Cases"]
-    if type(CasesData["New"]) is int:
-      Output += "\n    New:          {:,}".format(CasesData["New"])
-    else:
-      Output += "\n    New:          None"
-    if type(CasesData["Change"]) is int:
-      Output += "\n    Change:       {:,}".format(CasesData["Change"]) + GetArrow(CasesData["Change"])
-    else:
-      Output += "\n    Change        None" + RedCross
-    if ShowLastHighest:
-      Output += "\n    Last Highest: " + FindLastHighest(AllData, Data, "CASES", Index)
-    else:
-      Output += "\n    Last Highest: None"
-    Output += "\n    Roll Avg (3-Day):"
-    if type(CasesData["RollingAverages"]["Three"]["Average"]) is float:
-      Output += "\n      Average:    {:,}".format(round(CasesData["RollingAverages"]["Three"]["Average"], 3))
-    else:
-      Output += "\n      Average:    None"
-    if type(CasesData["RollingAverages"]["Three"]["Change"]) is float:
-      Output += "\n      Change:     {:,}".format(round(CasesData["RollingAverages"]["Three"]["Change"], 3)) + GetArrow(CasesData["RollingAverages"]["Three"]["Change"])
-    else:
-      Output += "\n      Change:     None" + RedCross
-    Output += "\n    Roll Avg (7-Day):"
-    if type(CasesData["RollingAverages"]["Seven"]["Average"]) is float:
-      Output += "\n      Average:    {:,}".format(round(CasesData["RollingAverages"]["Seven"]["Average"], 3))
-    else:
-      Output += "\n      Average:    None"
-    if type(CasesData["RollingAverages"]["Seven"]["Change"]) is float:
-      Output += "\n      Change:     {:,}".format(round(CasesData["RollingAverages"]["Seven"]["Change"], 3)) + GetArrow(CasesData["RollingAverages"]["Seven"]["Change"])
-    else:
-      Output += "\n      Change:     None" + RedCross
-    if type(CasesData["Corrections"]) is int:
-      Output += "\n    Corrections:  {:,}".format(CasesData["Corrections"])
-    else:
-      Output += "\n    Corrections:  None"
-    if type(CasesData["Total"]) is int:
-      Output += "\n    Total:        {:,}".format(CasesData["Total"])
-    else:
-      Output += "\n    Total:        None"
-    Output += "\n" + DeathsDot + "Deaths:"
-    DeathsData = Data["Deaths"]
-    if type(DeathsData["New"]) is int:
-      Output += "\n    New:          {:,}".format(DeathsData["New"])
-    else:
-      Output += "\n    New:          None"
-    if type(DeathsData["Change"]) is int:
-      Output += "\n    Change:       {:,}".format(DeathsData["Change"]) + GetArrow(DeathsData["Change"])
-    else:
-      Output += "\n    Change        None" + RedCross
-    if ShowLastHighest:
-      Output += "\n    Last Highest: " + FindLastHighest(AllData, Data, "DEATHS", Index)
-    else:
-      Output += "\n    Last Highest: None"
-    Output += "\n    Roll Avg (3-Day):"
-    if type(DeathsData["RollingAverages"]["Three"]["Average"]) is float:
-      Output += "\n      Average:    {:,}".format(round(DeathsData["RollingAverages"]["Three"]["Average"], 3))
-    else:
-      Output += "\n      Average:    None"
-    if type(DeathsData["RollingAverages"]["Three"]["Change"]) is float:
-      Output += "\n      Change:     {:,}".format(round(DeathsData["RollingAverages"]["Three"]["Change"], 3)) + GetArrow(DeathsData["RollingAverages"]["Three"]["Change"])
-    else:
-      Output += "\n      Change:     None" + RedCross
-    Output += "\n    Roll Avg (7-Day):"
-    if type(DeathsData["RollingAverages"]["Seven"]["Average"]) is float:
-      Output += "\n      Average:    {:,}".format(round(DeathsData["RollingAverages"]["Seven"]["Average"], 3))
-    else:
-      Output += "\n      Average:    None"
-    if type(DeathsData["RollingAverages"]["Seven"]["Change"]) is float:
-      Output += "\n      Change:     {:,}".format(round(DeathsData["RollingAverages"]["Seven"]["Change"], 3)) + GetArrow(DeathsData["RollingAverages"]["Seven"]["Change"])
-    else:
-      Output += "\n      Change:     None" + RedCross
-    if type(DeathsData["Corrections"]) is int:
-      Output += "\n    Corrections:  {:,}".format(DeathsData["Corrections"])
-    else:
-      Output += "\n    Corrections:  None"
-    if type(DeathsData["Total"]) is int:
-      Output += "\n    Total:        {:,}".format(DeathsData["Total"])
-    else:
-      Output += "\n    Total:        None"
-    Output += "\n" + CFRDot + "Case Fatality Rate:"
-    CFRData = Data["CaseFatality"]
-    if type(CFRData["Rate"]) is float:
-      Output += "\n    Rate:         {:,}".format(round(CFRData["Rate"] * 100, 3)) + "%"
-    else:
-      Output += "\n    Rate:         None"
-    if type(CFRData["Change"]) is float:
-      Output += "\n    Change:       {:,}".format(round(CFRData["Change"] * 100, 3)) + " p.p." + GetArrow(CFRData["Change"])
-    else:
-      Output += "\n    Change:       None" + RedCross
-  elif Structure == "SECONDARY":
-    UKPopulation = 68306137
-    Output += SecondaryDot + "SECONDARY DATA FOR " + Data["Date"] + ", " + Weekdays[datetime.strptime(Data["Date"], "%Y-%m-%d").weekday()]
-    Output += "\n  UK Population:  {:,}".format(UKPopulation)
-    Output += "\n  Vaccinations (First Dose):"
-    Output += "\n    New:          {:,}".format(Data["VaccinationsFirstDoseNew"])
-    Output += "\n    Total:        {:,}".format(Data["VaccinationsFirstDoseTotal"])
-    Output += "\n    % Population: " + str(round((Data["VaccinationsFirstDoseTotal"]/UKPopulation) * 100, 3)) + "%"
-    Output += "\n  Vaccinations (Second Dose):"
-    Output += "\n    New:          {:,}".format(Data["VaccinationsSecondDoseNew"])
-    Output += "\n    Total:        {:,}".format(Data["VaccinationsSecondDoseTotal"])
-    Output += "\n    % Population: " + str(round((Data["VaccinationsSecondDoseTotal"]/UKPopulation) * 100, 3)) + "%"
-    Output += "\n  Vaccinations (Additional Doses):"
-    Output += "\n    New:          {:,}".format(Data["VaccinationsAdditionalDoseNew"])
-    Output += "\n    Total:        {:,}".format(Data["VaccinationsAdditionalDoseTotal"])
-    Output += "\n    % Population: " + str(round((Data["VaccinationsAdditionalDoseTotal"]/UKPopulation) * 100, 3)) + "%"
-    Output += "\n  Vaccinations (Total Doses):"
-    Output += "\n    New:          {:,}".format(Data["VaccinationsFirstDoseNew"] + Data["VaccinationsSecondDoseNew"] + Data["VaccinationsAdditionalDoseNew"])
-    Output += "\n    Total:        {:,}".format(Data["VaccinationsFirstDoseTotal"] + Data["VaccinationsSecondDoseTotal"] + Data["VaccinationsAdditionalDoseTotal"])
-    Output += "\n    % Population: " + str(round((Data["VaccinationsFirstDoseTotal"] + Data["VaccinationsSecondDoseTotal"] + Data["VaccinationsAdditionalDoseTotal"]) / UKPopulation * 100, 3)) + "%"
-  Output += "\nObtained at " + DateStamp + "\n```"
-  await Channel.send(Output)
-  WriteToMainLog("Sent Discord message for " + Structure.lower() + " structure.")
+  pass
 
 @DiscordClient.event
 async def SendNotification(Notification):
-  await WaitForDiscord()
-  Channel = DiscordClient.get_channel(id=ChannelID)
-  await Channel.send(Notification)
+  pass
 
 # COVID Variant Procedures
 async def VariantLookup(Message):
-  try:
-    Command = Message.content.split(' ')
-    if len(Command) == 1 or len(Command) >= 3:
-      with open(VariantsFilename, 'r') as VariantsFile:
-        Variants = loads(VariantsFile.read())
-      await SendNotification("Variants information was last updated on " + Variants["Last Updated"] + ".")
-    Output = ""
-    VariantFound = False
-    if len(Command) == 1:
-      VariantFound = True
-      VariantsList = Variants["Variants"]
-      for i in range(len(VariantsList)):
-        Variant = VariantsList[i]
-        Output += VariantDetails(VariantsList[i], i + 1)
-        if len(Output) + 50 > 2000:
-          await SendNotification(Output)
-          Output = ""
-    elif len(Command) == 2:
-      VariantFound = True
-      if Command[1].upper() == "HELP":
-        Output = "Variant lookup help:\n```"
-        Output += "\nCommand Format: $variant [DataType] [IndexTerm]"
-        Output += "\nDataType and IndexTerm parameters are both optional – omitting both returns all known variants. However, omitting one but not the other is allowed only to access help."
-        Output += "\n"
-        Output += "\nValid inputs for DataType:"
-        Output += "\n  To search by number: \"number\", \"num\", \"no\"."
-        Output += "\n  To search by Greek letter: \"letter\", \"ltr\" (Case-senitive index term)."
-        Output += "\n  To search by latin name of Greek letter: \"latin\"."
-        Output += "\n  To search by PANGO lineage: \"pango\", \"scientific\", \"sci\"."
-        Output += "\n  To search by variant type: \"type\", \"variant\"."
-        Output += "\n  To search by earliest sample date: \"date\"."
-        Output += "\n  To search by associated country: \"nation\", \"country\"."
-        Output += "\n"
-        Output += "\nWhere the IndexTerm is not able to find a variant, an appropriate message will be displayed instead."
-        Output += "\n```"
-      else:
-        Output = "Invalid parameter: " + Command[1]
-    elif len(Command) >= 3:
-      if Command[1].upper() == "NATION" or Command[1].upper() == "COUNTRY":
-        try:
-          VariantsList = Variants["Variants"]
-          Nation = ""
-          if len(Command) > 3:
-            for i in range(2, len(Command)):
-              Nation += Command[i]
-              if i != len(Command) - 1:
-                Nation += " "
-          else:
-            Nation = flag.dflagize(Command[2]).replace(":", "")
-          if Nation.upper() != "UN":
-            Nation = countries.get(Nation).alpha2
-          for i in range(len(VariantsList)):
-            Variant = VariantsList[i]
-            if len(Variant) > 1:
-              if Variant["Nation"].upper() == Nation.upper():
-                VariantFound = True
-                Output += "\n`" + Nation + "` MATCHES VARIANT:"
-                Output += VariantDetails(Variant, i + 1)
-        except KeyError:
-          VariantFound = True
-          Output = "Nation not found. This may be due to a typo in the Aplha-2 or Alpha-3 code. Full national names are only partially supported."
-      elif len(Command) == 3:
-        if Command[1].upper() == "NUMBER" or Command[1].upper() == "NUM" or Command[1].upper() == "NO":
-          try:
-            if int(Command[2]) < 1:
-              raise ValueError()
-            Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-            Output = VariantDetails(Variants["Variants"][int(Command[2]) - 1], int(Command[2]))
-            VariantFound = True
-          except ValueError:
-            VariantFound = True
-            Output = "Invalid number: " + Command[2]
-        elif Command[1].upper() == "LETTER" or Command[1].upper() == "LTR":
-          VariantsList = Variants["Variants"]
-          for i in range(len(VariantsList)):
-            Variant = VariantsList[i]
-            if len(Variant) > 1:
-              if Variant["Variant of"].upper() == "CONCERN" or Variant["Variant of"].upper() == "INTEREST":
-                if Variant["Ltr"] == Command[2]:
-                  VariantFound = True
-                  Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-                  Output += VariantDetails(Variant, i + 1)
-        elif Command[1].upper() == "LATIN":
-          VariantsList = Variants["Variants"]
-          for i in range(len(VariantsList)):
-            Variant = VariantsList[i]
-            if len(Variant) > 1:
-              if Variant["Variant of"].upper() == "CONCERN" or Variant["Variant of"].upper() == "INTEREST":
-                if Variant["Latin"].upper() == Command[2].upper():
-                  VariantFound = True
-                  Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-                  Output += VariantDetails(Variant, i + 1)
-        elif Command[1].upper() == "PANGO" or Command[1].upper() == "SCIENTIFIC" or Command[1].upper() == "SCI":
-          AssociationsList = Variants["Associations"]
-          VariantsList = Variants["Variants"]
-          for i in range(len(AssociationsList)):
-            Association = AssociationsList[i]
-            if len(Association) > 1:
-              Substring = Association["Substring"].upper()
-              if Command[2].upper().startswith(Substring.upper()):
-                for k in range(len(VariantsList)):
-                  Variant = VariantsList[k]
-                  for m in range(len(Association["References"])):
-                    Reference = Association["References"][m]
-                    for o in range(len(Variant["PANGO"])):
-                      PANGO = Variant["PANGO"][o]
-                      if Reference == PANGO:
-                        VariantFound = True
-                        Output += "\n`" + Command[2] + "` REFERENCES VARIANT:"
-                        Output += VariantDetails(Variant, k + 1)
-            if VariantFound:
-              break
-          if not VariantFound:
-            for i in range(len(VariantsList)):
-              Variant = VariantsList[i]
-              if len(Variant) > 1:
-                for k in range(len(Variant["PANGO"])):
-                  if Variant["PANGO"][k].upper() == Command[2].upper():
-                    VariantFound = True
-                    Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-                    Output += VariantDetails(Variant, i + 1)
-                    break
-              if VariantFound:
-                break
-        elif Command[1].upper() == "TYPE" or Command[1].upper() == "VARIANT":
-          VariantsList = Variants["Variants"]
-          for i in range(len(VariantsList)):
-            Variant = VariantsList[i]
-            if len(Variant) > 1:
-              if Variant["Variant of"].upper() == Command[2].upper():
-                VariantFound = True
-                Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-                Output += VariantDetails(Variant, i + 1)
-        elif Command[1].upper() == "DATE":
-          try:
-            datetime.strptime(Command[2], "%Y-%m")
-            VariantsList = Variants["Variants"]
-            for i in range(len(VariantsList)):
-              Variant = VariantsList[i]
-              if len(Variant) > 1:
-                if Variant["Earliest Sample"] == Command[2]:
-                  VariantFound = True
-                  Output += "\n`" + Command[2] + "` MATCHES VARIANT:"
-                  Output += VariantDetails(Variant, i + 1)
-          except ValueError:
-            VariantFound = True
-            Output = "Invalid IndexName: " + Command[2] + ". Dates must be in ISO 8601 format YYYY-MM."  
-      else:
-        VariantFound = True
-        Output = "Invalid parameter count: " + str(len(Command)) + ", for DataType: " + Command[1]
-    if not VariantFound:
-      Output = "No variants found for " + Command[1] + " " + Command[2] + "."
-      VariantFound = True
-    if Output == "":
-      Output = "If you are reading this, something went tits up."
-    await SendNotification(Output)
-  except:
-    PrintError()
-    await SendNotification("Unhandled exception occured when parsing your request. Please pester the bot admin for a solution.")
+  pass
 
 def VariantDetails(VariantData, Number):
-  Output = "\n№: " + str(Number)
-  if VariantData["Variant of"] == "Concern" or VariantData["Variant of"] == "Interest":
-    Output += "\nLetter: " + VariantData["Ltr"]
-    Output += "\nLatin Name: " + VariantData["Latin"]
-  Output += "\nPango Name(s):"
-  for i in range(len(VariantData["PANGO"])):
-    Output += " " + VariantData["PANGO"][i]
-    if i != len(VariantData["PANGO"]) - 1:
-      Output += ","
-  Output += "\nVariant of: " + VariantData["Variant of"]
-  Output += "\nEarliest Sample: " + VariantData["Earliest Sample"]
-  Output += "\nAssociated Nation: " + flag.flag(VariantData["Nation"])
-  if VariantData["Nation"].upper() == "UN":
-    Output += " Multiple Countries"
-  else:
-    Output += " " + countries.get(VariantData["Nation"]).name
-  return Output
+  pass
 
 # Status Messages
 async def CheckForMessage(CurrentDate = None, IgnoreSent = False):
-  if CurrentDate == None:
-    CurrentDate = date.today().isoformat()
-  try:
-    NewMessages = False
-    SuccessfulCheck = False
-    while not SuccessfulCheck:
-      with open(MessagesFilename, 'r') as MessagesFile:
-        FileContents = loads(MessagesFile.read())
-      try:
-        WriteToMainLog("Checking for administrative messages. . .")
-        for i in range(len(FileContents)):
-          Message = FileContents[i]
-          if Message["Type"] == "AdminMessages":
-            if Message["Date"] == CurrentDate:
-              if not MessageAlreadySent(Message["Message"], FileContents, IgnoreSent):
-                NewMessages = True
-                await SendMessage(CurrentDate, Message["Message"])
-                Message["Sent"] = True
-        SuccessfulCheck = True
-        WriteToMainLog("Done.")
-      except:
-        PrintError()
-        await asyncio.sleep(5)
-    SuccessfulCheck = False
-    while not SuccessfulCheck:
-      try:
-        WriteToMainLog("Checking for log banner (blue) messages. . .")
-        for i in range(len(BlueBannersWebAddresses)):
-          Request = requests.get(BlueBannersWebAddresses[i])
-          Messages = loads(Request.text)
-          for k in range(len(Messages)):
-            Message = Messages[k]
-            if Message["date"] == CurrentDate:
-              if Message["type"].upper() == "UPDATE" or Message["type"].upper() == "DATA ISSUE" or Message["type"].upper() == "CHANGE TO METRIC":
-                if not MessageAlreadySent(Message["body"], FileContents, IgnoreSent):
-                  await SendMessage(CurrentDate, Message["body"])
-                  NewMessages = True
-                  if not IgnoreSent or not MessageAlreadySent(Message["body"], FileContents, False):
-                    FileContents.append(
-                      {
-                        "Date": CurrentDate,
-                        "Message": Message["body"],
-                        "Type": "LogBannersMessages",
-                        "Sent": True
-                      }
-                    )
-        WriteToMainLog("Done.")
-        SuccessfulCheck = True
-      except:
-        PrintError()
-        await asyncio.sleep(5)
-    SuccessfulCheck = False
-    while not SuccessfulCheck:
-      try:
-        WriteToMainLog("Checking for announcement (yellow) messages. . .")
-        Request = requests.get(YellowBannersWebAddress)
-        Messages = loads(Request.text)
-        for i in range(len(Messages)):
-          Message = Messages[i]
-          if Message["date"] == CurrentDate:
-            if not MessageAlreadySent(Message["body"], FileContents, IgnoreSent):
-              await SendMessage(CurrentDate, Message["body"])
-              NewMessages = True
-              if not IgnoreSent or not MessageAlreadySent(Message["body"], FileContents, False):
-                FileContents.append(
-                  {
-                    "Date": CurrentDate,
-                    "Message": Message["body"],
-                    "Type": "Announcements",
-                    "Sent": True
-                  }
-                )
-        WriteToMainLog("Done.")
-        SuccessfulCheck = True
-      except:
-        PrintError()
-        await asyncio.sleep(5)
-    if NewMessages:
-      WriteToMainLog("Updating messages file. . .")
-      with open(MessagesFilename, 'w') as MessagesFile:
-        MessagesFile.write("[\n")
-        for i in range(len(FileContents)):
-          MessagesFile.write("  " + dumps(FileContents[i]))
-          if i != len(FileContents) - 1:
-            MessagesFile.write(",\n")
-        MessagesFile.write("\n]")
-      WriteToMainLog("Done.")
-  except:
-    PrintError()
-  return NewMessages
+  pass
 
-def MessageAlreadySent(Message, MessagesFileContents, IgnoreSent):
-  if IgnoreSent:
-    return False
-  for i in range(len(MessagesFileContents)):
-    if Message == MessagesFileContents[i]["Message"]:
-      return MessagesFileContents[i]["Sent"]
-  return False
+def MessageAlreadySent(Message, MessageFileContents, IgnoreSent):
+  pass
 
 @DiscordClient.event
-async def SendMessage(Date, Message):
-  WriteToMainLog("Sending message. . .")
-  await WaitForDiscord()
-  Channel = DiscordClient.get_channel(id=ChannelID)
-  Output = "Message for " + Date + ":\n> " + Message.replace("\n", "\n> ")
-  await Channel.send(Output)
-  WriteToMainLog("Message sent.")
+async def SendMessage(Date, Message, MessageType):
+  pass
 
 # Log Procedures
 def WriteToMainLog(Text, Date = True):
@@ -1338,11 +682,11 @@ def WriteToMainLog(Text, Date = True):
     Output = "[" + datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T') + "] " + Text + "\n"
   else:
     Output = Text + "\n"
-  with open(LogFilename, 'a') as LogFile:
+  with open(Files["RuntimeLogs"], 'a') as LogFile:
     LogFile.write(Output)
 
 def PrintError():
-  with open(LogFilename,'a') as LogFile:
+  with open(Files["RuntimeLogs"],'a') as LogFile:
     LogFile.write("["+datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T')+"] Critical Error {\n")
     LogFile.write(traceback.format_exc())
     LogFile.write("\n}\n")
@@ -1355,7 +699,7 @@ async def FatalException(WriteToFile = True):
   Display.lcd_display_string("WARNING!".center(20),1)
   Display.lcd_display_string("The script has quit.",2)
   if WriteToFile:
-    ErrorLogFilename = ErrorLogsRootFolder + "Error_" + datetime.now().strftime("%Y-%m-%dT%H%M%S") + ".txt"
+    ErrorLogFilename = Files["ErrorLogs"] + "Error_" + datetime.now().strftime("%Y-%m-%dT%H%M%S") + ".txt"
     with open(ErrorLogFilename,'a') as ErrorFile:
       ErrorFile.write("[" + datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T') + "] Fatal Error (Exception point 1) {\n")
       ErrorFile.write(traceback.format_exc())
@@ -1370,24 +714,22 @@ async def FatalException(WriteToFile = True):
 
 if __name__ == "__main__":
   try:
-    LogFilename += date.today().isoformat() + ".txt"
-    if BeginTime < TimeoutCondition:
-      raise Exception("Timeout condition is later than start time.")
-    WriteToMainLog("Program Run, Version " + VersionNum)
+    if BeginTime < TimeoutTime:
+      raise Exception("Timeout time is later than the start time.")
     POST()
+    LoadConfig()
     WaitForNetwork()
-    ReloadLastOutputFromFile()
-    LoadDiscordInfo()
+    ReloadLastOutput()
     DiscordClient.loop.create_task(TimeReview())
     DiscordClient.run(BotToken)
-  except Exception:
+  except:
     ErrorLED.on()
     OldLED.off()
     NewLED.off()
     Display.lcd_clear()
     Display.lcd_display_string("WARNING!".center(20),1)
     Display.lcd_display_string("The script has quit.",2)
-    ErrorLogFilename = ErrorLogsRootFolder + "Error_" + datetime.now().strftime("%Y-%m-%dT%H%M%S") + ".txt"
+    ErrorLogFilename = Files["ErrorLogs"] + "Error_" + datetime.now().strftime("%Y-%m-%dT%H%M%S") + ".txt"
     with open(ErrorLogFilename,'a') as ErrorFile:
       ErrorFile.write("[" + datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T') + "] Fatal Error (Exception point 2) {\n")
       ErrorFile.write(traceback.format_exc())
