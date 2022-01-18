@@ -597,88 +597,44 @@ def CalculateRollAvgPeaks(AllData):
     }
   }
   for i in range(len(AllData), -1, -1):
-    CasesRA = AllData[i]["Cases"]["RollingAverages"]["Seven"]["Average"]
-    DeathsRA = AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Average"]
-    CasesRAPeak = False
-    DeathsRAPeak = False
-    if CasesRA != None:
-      if type(RollAvgPeaks["Cases"]["Global"]["Value"]) is float:
-        if CasesRA > RollAvgPeaks["Cases"]["Global"]["Value"]:
-          RollAvgPeaks["Cases"]["Global"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Cases"]["Global"]["Value"] = CasesRA
-          RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
-          CasesRAPeak = True
-      else:
-        CasesRAPeak = True
-        RollAvgPeaks["Cases"]["Global"]["Date"] = AllData[i]["Date"]
-        RollAvgPeaks["Cases"]["Global"]["Value"] = CasesRA
-        RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
-        RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
-      if RollAvgPeaks["Cases"]["Local"]["Value"] == None:
-        if AllData[i]["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
-          NumPositives = 1
-          while AllData[i + NumPositives]["Cases"]["RollingAverages"]["Seven"]["Change"] > 0:
-            NumPositives += 1
-          if NumPositives >= 7:
-            CasesRAPeak = True
-            RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
-            RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
-      if not CasesRAPeak and type(RollAvgPeaks["Cases"]["Local"]["Value"]) is float:
-        if CasesRA > RollAvgPeaks["Cases"]["Local"]["Value"]:
-          CasesRAPeak = True
-          RollAvgPeaks["Cases"]["Local"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Cases"]["Local"]["Value"] = CasesRA
-      if not CasesRAPeak and RollAvgPeaks["Cases"]["Local"]["Date"] != None:
-        if AllData[i]["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
-          DateOfLastLocal = datetime.strptime(RollAvgPeaks["Cases"]["Local"]["Date"], "%Y-%m-%d")
-          DateOfCurrentData = datetime.strptime(AllData[i]["Date"], "%Y-%m-%d")
-          if DateOfCurrentData - DateOfLastLocal >= timedelta(days=10):
-            NumNegatives = 1
-            while AllData[i + NumNegatives]["Cases"]["RollingAverages"]["Seven"]["Change"] < 0:
-              NumNegatives += 1
-            if NumNegatives >= 10:
-              RollAvgPeaks["Cases"]["Local"]["Date"] = None
-              RollAvgPeaks["Cases"]["Local"]["Value"] = None  
-    if DeathsRA != None:
-      if type(RollAvgPeaks["Deaths"]["Global"]["Value"]) is float:
-        if DeathsRA > RollAvgPeaks["Deaths"]["Global"]["Value"]:
-          DeathsRAPeak = True
-          RollAvgPeaks["Deaths"]["Global"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Deaths"]["Global"]["Value"] = DeathsRA
-          RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
-      else:
-        DeathsRAPeak = True
-        RollAvgPeaks["Deaths"]["Global"]["Date"] = AllData[i]["Date"]
-        RollAvgPeaks["Deaths"]["Global"]["Value"] = DeathsRA
-        RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
-        RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
-      if RollAvgPeaks["Deaths"]["Local"]["Value"] == None:
-        if AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
-          NumPositives = 1
-          while AllData[i + NumPositives]["Deaths"]["RollingAverages"]["Seven"]["Change"] > 0:
-            NumPositives += 1
-          if NumPositives >= 7:
-            DeathsRAPeak = True
-            RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
-            RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
-      if not DeathsRAPeak and type(RollAvgPeaks["Deaths"]["Local"]["Value"]) is float:
-        if DeathsRA > RollAvgPeaks["Deaths"]["Local"]["Value"]:
-          DeathsRAPeak = True
-          RollAvgPeaks["Deaths"]["Local"]["Date"] = AllData[i]["Date"]
-          RollAvgPeaks["Deaths"]["Local"]["Value"] = DeathsRA
-      if not DeathsRAPeak and RollAvgPeaks["Deaths"]["Local"]["Date"] != None:
-        if AllData[i]["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
-          DateOfLastLocal = datetime.strptime(RollAvgPeaks["Deaths"]["Local"]["Date"], "%Y-%m-%d")
-          DateOfCurrentData = datetime.strptime(AllData[i]["Date"], "%Y-%m-%d")
-          if DateOfCurrentData - DateOfLastLocal >= timedelta(days=10):
-            NumNegatives = 1
-            while AllData[i + NumNegatives]["Deaths"]["RollingAverages"]["Seven"]["Change"] < 0:
-              NumNegatives += 1
-            if NumNegatives >= 10:
-              RollAvgPeaks["Deaths"]["Local"]["Date"] = None
-              RollAvgPeaks["Deaths"]["Local"]["Value"] = None
+    for Metric in Metrics:
+      RollingAverage = AllData[i][Metric]["RollingAverages"]["Seven"]["Average"]
+      RollingAveragePeak = False
+      if RollingAverage != None:
+        if type(RollAvgPeaks[Metric]["Global"]["Value"]) is float:
+          if RollingAverage > RollAvgPeaks[Metric]["Global"]["Value"]:
+            RollAvgPeaks[Metric]["Global"]["Date"] = AllData[i]["Date"]
+            RollAvgPeaks[Metric]["Global"]["Value"] = RollingAverage
+            RollingAveragePeak = True
+        else:
+          RollingAveragePeak = True
+          RollAvgPeaks[Metric]["Global"]["Date"] = AllData[i]["Date"]
+          RollAvgPeaks[Metric]["Global"]["Value"] = RollingAverage
+        if RollAvgPeaks[Metric]["Local"]["Value"] == None:
+          if AllData[i][Metric]["RollingAverages"]["Seven"]["Change"] > 0:
+            NumPositives = 1
+            while AllData[i + NumPositives][Metric]["RollingAverages"]["Seven"]["Change"] > 0:
+              NumPositives += 1
+            if NumPositives >= 7:
+              RollingAveragePeak = True
+              RollAvgPeaks[Metric]["Local"]["Date"] = AllData[i]["Date"]
+              RollAvgPeaks[Metric]["Local"]["Value"] = RollingAverage
+        if type(RollAvgPeaks[Metric]["Local"]["Value"]) is float:
+          if RollingAverage > RollAvgPeaks[Metric]["Local"]["Value"]:
+            RollingAveragePeak = True
+            RollAvgPeaks[Metric]["Local"]["Date"] = AllData[i]["Date"]
+            RollAvgPeaks[Metric]["Local"]["Value"] = RollingAverage
+        if not RollingAveragePeak and RollAvgPeaks[Metric]["Local"]["Date"] != None:
+          if AllData[i][Metric]["RollingAverages"]["Seven"]["Change"] < 0:
+            DateOfLastLocal = datetime.strptime(RollAvgPeaks[Metric]["Local"]["Date"], "%Y-%m-%d")
+            DateOfCurrentData = datetime.strptime(AllData[i]["Date"], "%Y-%m-%d")
+            if DateOfCurrentData - DateOfLastLocal >= timedelta(days=10):
+              NumNegatives = 1
+              while AllData[i + NumNegatives][Metric]["RollingAverages"]["Seven"]["Change"] < 0:
+                NumNegatives += 1
+              if NumNegatives >= 10:
+                RollAvgPeaks[Metric]["Local"]["Date"] = None
+                RollAvgPeaks[Metric]["Local"]["Value"] = None
   return RollAvgPeaks
 
 def CommitToFile(AllData, RollAvgPeaks):
@@ -853,7 +809,7 @@ def LookForPeak(Metric, Flags, CurrentPeaks):
         Flags["NewLocal"] = True
         CurrentPeaks[Metric]["Local"]["Date"] = LatestRecordFormatted["Date"]
         CurrentPeaks[Metric]["Local"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
-  if not Flags["NewGlobal"] and type(CurrentPeaks[Metric]["Local"]["Value"]) is float:
+  if type(CurrentPeaks[Metric]["Local"]["Value"]) is float:
     if LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"] > CurrentPeaks[Metric]["Local"]["Value"]:
       Flags["NewLocal"] = True
       CurrentPeaks[Metric]["Local"]["Date"] = LatestRecordFormatted["Date"]
@@ -1237,7 +1193,7 @@ async def ResendMessages():
     if Message["Date"] == CurrentDate:
       if Message["Type"] == "AdminMessages":
         MessageOrigin = "Bot Admin"
-      elif Message["Type"] == "LogBannersMessages" or Message["Type"] == "Announcements":
+      elif Message["Type"] == "LogBannersMessages" or Message["Type"] == "Metric":
         MessageOrigin = "Dashboard"
       await SendMessage(CurrentDate, Message["Message"], MessageOrigin)
       MessageSent = True
@@ -1305,7 +1261,7 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
                 {
                   "Date": CurrentDate,
                     "Message": Message["body"],
-                    "Type": "Announcements",
+                    "Type": "Metric",
                     "Sent": True
                 }
               )
