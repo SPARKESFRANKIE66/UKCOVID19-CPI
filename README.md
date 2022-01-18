@@ -68,6 +68,7 @@ You can create your own file using the following template:
     ],
     "StartSearchingTime": "",
     "TimeoutTime": "",
+    "UKPopulation":
     "VariantsEnable": true,
     "WaitTime": 0
   },
