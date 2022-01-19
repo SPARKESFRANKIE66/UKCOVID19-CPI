@@ -1,7 +1,5 @@
 from ast import Pass
 from datetime import date, datetime, timedelta
-from pydoc import _OldStyleClass
-from unittest.mock import NonCallableMagicMock
 from gpiozero import LED
 from iso3166 import countries
 from json import dumps, loads
