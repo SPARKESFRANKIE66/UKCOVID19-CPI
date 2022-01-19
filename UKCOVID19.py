@@ -197,7 +197,10 @@ def LoadConfig(Reload = False):
         else:
           raise Exception("Discord bot token not found in file.")
         if DiscordSettings.__contains__("ChannelID"):
-          ChannelID = DiscordSettings["ChannelID"]
+          if type(DiscordSettings["ChannelID"]) is int:
+            ChannelID = DiscordSettings["ChannelID"]
+          else:
+            raise Exception("Channel ID must be in data type int.")
         else:
           raise Exception("Discord Channel ID not found in file.")
         WriteToMainLog("Discord configuration loaded.")
