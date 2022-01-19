@@ -538,7 +538,7 @@ def ReloadMassData(CalculateRollAvgPeak = True):
 def CalculateRollingAveragesAndDailyChange(AllData):
   for i in range(len(AllData)):
     for Metric in Metrics:
-      if i < len(AllData) - 7:
+      if i <= len(AllData) - 7:
         RollingAverageLength = "Seven"
         RollingAverage = AllData[i][Metric]["New"]
         for k in range(1, 7):
@@ -550,7 +550,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
         if RollingAverage != None:
           RollingAverage /= 7
           AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
-      if i < len(AllData) - 3:
+      if i <= len(AllData) - 3:
         RollingAverageLength = "Three"
         RollingAverage = AllData[i][Metric]["New"]
         for k in range(1, 3):
@@ -562,16 +562,16 @@ def CalculateRollingAveragesAndDailyChange(AllData):
         if RollingAverage != None:
           RollingAverage /= 3
           AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
-      if i < len(AllData) - 2:
-        if AllData[i][Metric]["New"] != None and AllData[i + 1][Metric]["New"] != None:
-          AllData[i][Metric]["Change"] = AllData[i][Metric]["New"] - AllData[i + 1][Metric]["New"]
-          AllData[i][Metric]["Corrections"] = AllData[i][Metric]["Total"] - (AllData[i][Metric]["New"] + AllData[i + 1][Metric]["Total"])
-        if AllData[i]["CaseFatality"]["Rate"] != None and AllData[i + 1]["CaseFatality"]["Rate"] != None:
-          AllData[i]["CaseFatality"]["Change"] = AllData[i]["CaseFatality"]["Rate"] - AllData[i + 1]["CaseFatality"]["Rate"]
+      if i != 0:
+        if AllData[i - 1][Metric]["New"] != None and AllData[i][Metric]["New"] != None:
+          AllData[i - 1][Metric]["Change"] = AllData[i - 1][Metric]["New"] - AllData[i][Metric]["New"]
+          AllData[i - 1][Metric]["Corrections"] = AllData[i - 1][Metric]["Total"] - (AllData[i - 1][Metric]["New"] + AllData[i][Metric]["Total"])
+        if AllData[i - 1]["CaseFatality"]["Rate"] != None and AllData[i]["CaseFatality"]["Rate"] != None:
+          AllData[i - 1]["CaseFatality"]["Change"] = AllData[i - 1]["CaseFatality"]["Rate"] - AllData[i]["CaseFatality"]["Rate"]
         RollingAverages = ["Three", "Seven"]
         for RollingAverage in RollingAverages:
-          if AllData[i + 1][Metric]["RollingAverages"][RollingAverage]["Average"] != None:
-            AllData[i][Metric]["RollingAverages"][RollingAverage]["Change"] = AllData[i][Metric]["RollingAverages"][RollingAverage]["Average"] - AllData[i + 1][Metric]["RollingAverages"][RollingAverage]["Average"]
+          if AllData[i][Metric]["RollingAverages"][RollingAverage]["Average"] != None:
+            AllData[i - 1][Metric]["RollingAverages"][RollingAverage]["Change"] = AllData[i  -1][Metric]["RollingAverages"][RollingAverage]["Average"] - AllData[i][Metric]["RollingAverages"][RollingAverage]["Average"]
   return AllData
 
 def CalculateRollAvgPeaks(AllData):
