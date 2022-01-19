@@ -59,7 +59,7 @@ TimeoutTime = "0000"
 # COVID API Constants
 Filters = [
   "areaType=Overview",
-  "areaName=UnitedKingdom"
+  "areaName=United Kingdom"
 ]
 PrimaryStructure = {
   "Date": "date",
@@ -146,7 +146,7 @@ def POST():
     NewLED.off()
 
 def LoadConfig(Reload = False):
-  global BeginTime, BotToken, ChannelID, DelayTime, ExcludedDates, Files, NetworkTestAddresses, TimeoutTime, VariantsEnable
+  global BeginTime, BotToken, ChannelID, DelayTime, ExcludedDates, Files, NetworkTestAddresses, TimeoutTime, UKPopulation, VariantsEnable
   WriteToMainLog("Loading configuration file. . .")
   if os.path.isfile(Files["Config"]):
     with open(Files["Config"]) as ConfigFile:
@@ -370,8 +370,9 @@ async def APICheck():
     if int(Minutes) % 15 == 0:
       if not MessagesChecked:
         await CheckForMessage()
+        MessagesChecked = True
     else:
-      MessagesChecked = True
+      MessagesChecked = False
     if not PrimaryUpdated:
       try:
         PrimaryUpdated = await PrimaryAPICheck(CurrentDate)
@@ -480,8 +481,9 @@ def VerifyMassData(ReloadIfFail = True):
   AllData = GetAllData()
   DateToCheck = (date.today() - timedelta(days=1))
   if len(AllData) == 0:
+    WriteToMainLog("Mass data store data not valid.")
     if ReloadIfFail:
-      ReloadMassData
+      ReloadMassData()
     return False
   for i in range(len(AllData)):
     while ExcludedDates.__contains__(DateToCheck):
@@ -512,7 +514,7 @@ def ReloadMassData(CalculateRollAvgPeak = True):
   for i in range(len(DataFromAPI)):
     CurrentRecordFormatting = loads(dumps(DataAggregationTemplate))
     CurrentRecordFormatting["Date"] = DataFromAPI[i]["Date"]
-    CurrentRecordFormatting["Day"] = datetime.strptime(DataFromAPI[i]["Date"], "%Y-%m%d").weekday()
+    CurrentRecordFormatting["Day"] = datetime.strptime(DataFromAPI[i]["Date"], "%Y-%m-%d").weekday()
     for Metric in Metrics:
       CurrentRecordFormatting[Metric]["New"] = DataFromAPI[i][Metric + "New"]
       CurrentRecordFormatting[Metric]["Total"] = DataFromAPI[i][Metric + "Total"]
@@ -956,12 +958,12 @@ async def SendData(Structure, Data, Index = 0):
     "Secondary": '\U0001F7E2',
     "Cross": '\u274C'
   }
-  ShowLastHighest = VerifyMassData(ReloadIfFail=False)
-  if ShowLastHighest:
-    AllData = GetAllData()
   NumDecimalPointForRounding = 3
   Output = "```\n"
   if Structure == "PRIMARY":
+    ShowLastHighest = VerifyMassData(ReloadIfFail=False)
+    if ShowLastHighest:
+      AllData = GetAllData()
     RollingAverages = [
       "Three,3",
       "Seven,7"
@@ -1031,11 +1033,11 @@ async def SendData(Structure, Data, Index = 0):
       TotalDoses["Total"] += Data["Vaccinations" + Dose + "DoseTotal"]
       Output += "\n      New:          {:,}".format(Data["Vaccinations" + Dose + "DoseNew"])
       Output += "\n      Total:        {:,}".format(Data["Vaccinations" + Dose + "DoseTotal"])
-      Output += "\n      % Population: {:,}%".format(round((Data["Vaccinations" + Dose + "DoseTotal"] / UKPopulation) * 100), NumDecimalPointForRounding)
+      Output += "\n      % Population: {:,}%".format(round((Data["Vaccinations" + Dose + "DoseTotal"] / UKPopulation) * 100, NumDecimalPointForRounding))
     Output += "\n  Vaccinations (Total Doses):"
     Output += "\n      New:          {:,}".format(TotalDoses["New"])
     Output += "\n      Total:        {:,}".format(TotalDoses["Total"])
-    Output += "\n      % Population: {:,}%".format(round((TotalDoses["Total"] / UKPopulation) * 100), NumDecimalPointForRounding)
+    Output += "\n      % Population: {:,}%".format(round((TotalDoses["Total"] / UKPopulation) * 100, NumDecimalPointForRounding))
   Output += "\n```"
   WriteToMainLog("Sending Discord message for " + Structure.lower() + " structure. . .")
   await SendNotification(Output)
@@ -1084,13 +1086,13 @@ async def on_message_edit(BeforeMessage, AfterMessage):
     await on_message(AfterMessage)
 
 async def GetDataCommand(Command):
+  VerifyMassData()
   AllData = GetAllData()
   if len(AllData) == 0:
     await SendNotification("No data to send.")
   else:
     if len(Command) == 2:
       if VerifyDate(Command[1]):
-        VerifyMassData()  
         WriteToMainLog("Data requested for " + Command[1] + ". Obtaining data. . .")
         DataFound = False
         for i in range(len(AllData)):
@@ -1105,7 +1107,6 @@ async def GetDataCommand(Command):
       else:
         await SendNotification("`$getdata` command supports date only in ISO 8601 format (YYYY-MM-DD). Omit for the latest data.")
     elif len(Command) == 1:
-      VerifyMassData()
       WriteToMainLog("Latest data requested.")
       await SendData("PRIMARY", AllData[0], 0)
     else:
@@ -1364,7 +1365,7 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
         ExistingMessages = ReadMessagesFile()
         for Message in ExistingMessages:
           if Message["Type"] == "AdminMessages" and Message["Date"] == CurrentDate:
-            if not MessageAlreadySent(Message["Message"], ExistingMessages):
+            if not MessageAlreadySent(Message["Message"], ExistingMessages, Message["Date"]):
               NewMessages = True
               await SendMessage(CurrentDate, Message["Message"], "Bot Admin")
               Message["Sent"] = True
@@ -1377,12 +1378,13 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
     while not SuccessfulCheck:
       try:
         WriteToMainLog("Checking for log banner (blue) messages. . .")
-        for Address in StatusMessagesAddresses["BlueBannersAddresses"].replace("%DATE%", CurrentDate):
+        for Address in StatusMessagesAddresses["BlueBannersAddresses"]:
+          Address = Address.replace("%DATE%", CurrentDate)
           Messages = loads(requests.get(Address).text)
           for Message in Messages:
             if Message["date"] == CurrentDate:
               if ["UPDATE", "DATA ISSUE", "CHANGE TO METRIC"].__contains__(Message["type"].upper()):
-                if not MessageAlreadySent(Message["body"], ExistingMessages):
+                if not MessageAlreadySent(Message["body"], ExistingMessages, Message["date"]):
                   await SendMessage(CurrentDate, Message["body"], "Dashboard")
                   NewMessages = True
                   ExistingMessages.append(
@@ -1404,7 +1406,7 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
         Messages = loads(requests.get(StatusMessagesAddresses["YellowBannersAddress"]).text)
         for Message in Messages:
           if Message["date"] == CurrentDate:
-            if not MessageAlreadySent(Message["body"], ExistingMessages):
+            if not MessageAlreadySent(Message["body"], ExistingMessages, Message["date"]):
               await SendMessage(CurrentDate, Message["body"], "Dashboard")
               NewMessages = True
               ExistingMessages.append(
