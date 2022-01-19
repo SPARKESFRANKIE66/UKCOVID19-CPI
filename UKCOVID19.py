@@ -891,7 +891,7 @@ def BuildDisplay(Data):
     NewDisplay[3] += "{:,}".format(Data["Cases"]["Corrections"]).rjust(10)
   else:
     NewDisplay[3] += "None".ljust(10)
-  NewDisplay += "|"
+  NewDisplay[3] += "|"
   if Data["Deaths"]["Corrections"] != None:
     NewDisplay[3] += "{:,}".format(Data["Deaths"]["Corrections"]).rjust(9)
   else:
