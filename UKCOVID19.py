@@ -53,9 +53,7 @@ Metrics = [
   "Cases",
   "Deaths"
 ]
-NetworkTestAddresses = [
-  
-]
+NetworkTestAddresses = []
 TimeoutTime = "0000"
 
 # COVID API Constants
@@ -161,15 +159,7 @@ def LoadConfig(Reload = False):
         ExcludedDates = Configuration["ExcludedDates"]
       if not Reload:
         if Configuration.__contains__("NetworkTestAddresses"):
-          Addresses = Configuration["NetworkTestAddresses"]
-          if Addresses.__contains__("Internal"):
-            NetworkTestAddresses["Internal"] = Addresses["Internal"]
-          else:
-            raise Exception("Internal network URL or IP address not found in file.")
-          if Addresses.__contains__("External"):
-            NetworkTestAddresses["Enternal"] = Addresses["External"]
-          else:
-            raise Exception("External network URL or IP address not found in file.")
+          NetworkTestAddresses = Configuration["NetworkTestAddresses"]
         else:
           raise Exception("Specified addresses for network test not found in file.")
       if Configuration.__contains__("StartSearchingTime"):
