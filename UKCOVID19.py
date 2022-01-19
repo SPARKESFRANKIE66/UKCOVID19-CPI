@@ -1049,22 +1049,22 @@ async def on_message(Message):
         Command = Message.content.upper()
         if Command.startswith("$GETDATA"):
           WriteToMainLog("Command received of type: \"GETDATA\".")
-          GetDataCommand(Command.split(' '))
+          await GetDataCommand(Command.split(' '))
         elif Command.startswith("$MESSAGES"):
           WriteToMainLog("Command received of type \"MESSAGES\".")
           MessagesCommand()
         elif Command.startswith("$RAVGPEAKS"):
           WriteToMainLog("Command received of type \"RAVGPEAKS\".")
-          RollAvgPeaksCommand(Command.split(' '))
+          await RollAvgPeaksCommand(Command.split(' '))
         elif Command.startswith("$VARIANT"):
           WriteToMainLog("Command received of type \"VARIANT\".")
-          VariantCommand(Command.split(' '))
+          await VariantCommand(Command.split(' '))
         elif Command.startswith("$VERSION"):
           WriteToMainLog("Command received of type \"VERSION\".")
-          VersionCommand()
+          await VersionCommand()
         else:
           WriteToMainLog("Command received of unknown type. Returning command help.")
-          CommandHelp()
+          await CommandHelp()
       elif Message.content.upper() == "GOOD BOT":
         await SendNotification("Much thank")
   except:
