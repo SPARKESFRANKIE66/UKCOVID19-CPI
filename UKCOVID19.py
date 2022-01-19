@@ -931,13 +931,7 @@ async def WaitForDiscord():
       SuccessfulWait = True
   except:
     PrintError()
-    if not ErrorMode:
-      ErrorLED.on()
-      ErrorMode = True
     await asyncio.sleep(DelayTime)
-  if ErrorMode:
-    ErrorMode = False
-    ErrorLED.off()
 
 async def SendData(Structure, Data, Index = 0):
   await WaitForDiscord()
