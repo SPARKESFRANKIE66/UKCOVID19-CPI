@@ -1482,10 +1482,11 @@ async def FatalException(WriteToFile = True):
 
 if __name__ == "__main__":
   try:
-    if BeginTime < TimeoutTime:
-      raise Exception("Timeout time is later than the start time.")
+    WriteToMainLog("PROGRAM START, Version " + Version)
     POST()
     LoadConfig()
+    if BeginTime < TimeoutTime:
+      raise Exception("Timeout time is later than the start time.")
     WaitForNetwork()
     ReloadLastOutput()
     DiscordClient.loop.create_task(TimeReview())
