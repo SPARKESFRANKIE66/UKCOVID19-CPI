@@ -7,7 +7,7 @@ import asyncio, discord, flag, lcddriver, os, requests, time, traceback
 
 # Global Constants
 Version = "7.0"
-BeginTime = ""
+BeginTime = "1540"
 DelayTime = 15
 DataAggregationTemplate = {
   "Date": None,
@@ -56,7 +56,7 @@ Metrics = [
 NetworkTestAddresses = [
   
 ]
-TimeoutTime = "2359"
+TimeoutTime = "0000"
 
 # COVID API Constants
 Filters = [
@@ -154,44 +154,44 @@ def LoadConfig(Reload = False):
     with open(Files["Config"]) as ConfigFile:
       ConfigFileContents = loads(ConfigFile.read())
     WriteToMainLog("File loaded.")
-    if ConfigFileContents.has_key("Configuration"):
+    if ConfigFileContents.__contains__("Configuration"):
       WriteToMainLog("Loading general configuration. . .")
       Configuration = ConfigFileContents["Configuration"]
-      if Configuration.has_key("ExcludedDates"):
+      if Configuration.__contains__("ExcludedDates"):
         ExcludedDates = Configuration["ExcludedDates"]
       if not Reload:
-        if Configuration.has_key("NetworkTestAddresses"):
+        if Configuration.__contains__("NetworkTestAddresses"):
           Addresses = Configuration["NetworkTestAddresses"]
-          if Addresses.has_key("Internal"):
+          if Addresses.__contains__("Internal"):
             NetworkTestAddresses["Internal"] = Addresses["Internal"]
           else:
             raise Exception("Internal network URL or IP address not found in file.")
-          if Addresses.has_key("External"):
+          if Addresses.__contains__("External"):
             NetworkTestAddresses["Enternal"] = Addresses["External"]
           else:
             raise Exception("External network URL or IP address not found in file.")
         else:
           raise Exception("Specified addresses for network test not found in file.")
-      if Configuration.has_key("StartSearchingTime"):
+      if Configuration.__contains__("StartSearchingTime"):
         BeginTime = Configuration["StartSearchingTime"]
       else:
         raise Exception("Searching start time not found in file.")
-      if Configuration.has_key("TimeoutTime"):
+      if Configuration.__contains__("TimeoutTime"):
         TimeoutTime = Configuration["TimeoutTime"]
       else:
         WriteToMainLog("Timeout time not found in configuration file. Using default timeout time.")
-      if Configuration.has_key("UKPopulation"):
+      if Configuration.__contains__("UKPopulation"):
         if type(Configuration["UKPopulation"]) is int:
           UKPopulation = Configuration["UKPopulation"]
         else:
           raise Exception("Key \"UKPopulation\" must be in integer data type.")
       else:
         raise Exception("UK Population count not found in file.")
-      if Configuration.has_key("VariantsEnable"):
+      if Configuration.__contains__("VariantsEnable"):
         VariantsEnable = Configuration["VariantsEnable"]
       else:
         WriteToMainLog("Variants toggle not found in file. Using default value.")
-      if Configuration.has_key("WaitTime"):
+      if Configuration.__contains__("WaitTime"):
           DelayTime = Configuration["WaitTime"]
       else:
         WriteToMainLog("Wait time not found in file. Using default wait time.")
@@ -199,37 +199,37 @@ def LoadConfig(Reload = False):
     else:
       raise Exception("Configuration settings not found in file.")
     if not Reload:
-      if ConfigFileContents.has_key("Discord"):
+      if ConfigFileContents.__contains__("Discord"):
         WriteToMainLog("Loading Discord configuration. . .")
         DiscordSettings = ConfigFileContents["Discord"]
-        if DiscordSettings.has_key("BotToken"):
+        if DiscordSettings.__contains__("BotToken"):
           BotToken = DiscordSettings["BotToken"]
         else:
           raise Exception("Discord bot token not found in file.")
-        if DiscordSettings.has_key("ChannelID"):
+        if DiscordSettings.__contains__("ChannelID"):
           ChannelID = DiscordSettings["ChannelID"]
         else:
           raise Exception("Discord Channel ID not found in file.")
         WriteToMainLog("Discord configuration loaded.")
       else:
         raise Exception("Discord settings not found in file.")
-    if ConfigFileContents.has_key("Files"):
+    if ConfigFileContents.__contains__("Files"):
       WriteToMainLog("Directories loading. . .")
       FileList = ConfigFileContents["Files"]
-      if FileList.has_key("AllData"):
+      if FileList.__contains__("AllData"):
         Files["AllData"] = FileList["AllData"]
       else:
         raise Exception("All Data path not found in file.")
-      if FileList.has_key("Messages"):
+      if FileList.__contains__("Messages"):
         Files["Messages"] = FileList["Messages"]
       else:
         WriteToMainLog("No messages file found in file. Defaulting to the parent folder of the script.")
-      if FileList.has_key("RollAvgPeaks"):
+      if FileList.__contains__("RollAvgPeaks"):
         Files["RollAvgPeaks"] = FileList["RollAvgPeaks"]
       else:
         raise Exception("Rolling Averages Peaks file not found in file.")
       if VariantsEnable:
-        if FileList.has_key("Variants"):
+        if FileList.__contains__("Variants"):
           Files["Variants"] = FileList["Variants"]
         else:
           VariantsEnable = False
@@ -237,11 +237,11 @@ def LoadConfig(Reload = False):
       WriteToMainLog("Directories loaded.")
     else:
       raise Exception("File paths not found in file.")
-    if ConfigFileContents.has_key("StatusMessages"):
+    if ConfigFileContents.__contains__("StatusMessages"):
       StatusMessages = ConfigFileContents["StatusMessages"]
-      if StatusMessages.has_key("BlueBannersAddresses"):
+      if StatusMessages.__contains__("BlueBannersAddresses"):
         StatusMessagesAddresses["BlueBannersAddresses"] = StatusMessages["BlueBannersAddresses"]
-      if StatusMessages.has_key("YellowBannersAddress"):
+      if StatusMessages.__contains__("YellowBannersAddress"):
         StatusMessagesAddresses["YellowBannersAddress"] = StatusMessages["YellowBanners"]
   else:
     Display.lcd_display_string("No config file.")
