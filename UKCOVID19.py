@@ -536,7 +536,7 @@ def ReloadMassData(CalculateRollAvgPeak = True):
 def CalculateRollingAveragesAndDailyChange(AllData):
   for i in range(len(AllData)):
     for Metric in Metrics:
-      if i <= len(AllData) - 7:
+      if i < len(AllData) - 7:
         RollingAverageLength = "Seven"
         RollingAverage = AllData[i][Metric]["New"]
         for k in range(1, 7):
@@ -548,7 +548,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
         if RollingAverage != None:
           RollingAverage /= 7
           AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
-      if i <= len(AllData) - 3:
+      if i < len(AllData) - 3:
         RollingAverageLength = "Three"
         RollingAverage = AllData[i][Metric]["New"]
         for k in range(1, 7):
@@ -560,7 +560,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
         if RollingAverage != None:
           RollingAverage /= 3
           AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
-      if i < len(AllData) - 1:
+      if i < len(AllData) - 2:
         if AllData[i][Metric]["New"] != None and AllData[i + 1][Metric]["New"] != None:
           AllData[i][Metric]["Change"] = AllData[i][Metric]["New"] - AllData[i + 1][Metric]["New"]
           AllData[i][Metric]["Corrections"] = AllData[i][Metric]["Total"] - (AllData[i][Metric]["New"] + AllData[i + 1][Metric]["Total"])
