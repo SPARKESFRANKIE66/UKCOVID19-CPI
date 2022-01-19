@@ -1322,7 +1322,7 @@ def VariantDetails(VariantData):
 # Status Messages
 def ReadMessagesFile():
   with open(Files["Messages"], 'r') as MessagesFile:
-    ExistingMessages = loads(MessagesFile)
+    ExistingMessages = loads(MessagesFile.read())
   return ExistingMessages
 
 async def ResendMessages():
@@ -1454,7 +1454,7 @@ def WriteToMainLog(Text, Date = True):
     LogFile.write(Output)
 
 def PrintError():
-  with open(Files["RuntimeLogs"],'a') as LogFile:
+  with open(Files["RuntimeLogs"].replace("%DATE%", date.today().isoformat()),'a') as LogFile:
     LogFile.write("["+datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T')+"] Critical Error {\n")
     LogFile.write(traceback.format_exc())
     LogFile.write("\n}\n")
