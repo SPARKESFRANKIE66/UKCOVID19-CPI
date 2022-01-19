@@ -1,4 +1,3 @@
-from ast import Pass
 from datetime import date, datetime, timedelta
 from gpiozero import LED
 from iso3166 import countries
