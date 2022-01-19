@@ -291,15 +291,17 @@ def ReloadLastOutput():
         CurrentDisplay[1] = "X"
         CurrentDisplay[2] = "Previous data found,".center(20)
         CurrentDisplay[3] = "Data is invalid.".center(20)
+        CommitDisplay(CurrentDisplay)
     else:
       WriteToMainLog("No previous data found.")
       CurrentDisplay[2] = "No previous".center(20)
       CurrentDisplay[3] = "data found.".center(20)
+      CommitDisplay(CurrentDisplay)
   else:
     WriteToMainLog("No previous data found.")
     CurrentDisplay[2] = "No previous".center(20)
     CurrentDisplay[3] = "data found.".center(20)
-  CommitDisplay(CurrentDisplay)
+    CommitDisplay(CurrentDisplay)
 
 # Common Procedures
 async def TimeReview():
@@ -551,7 +553,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
       if i < len(AllData) - 3:
         RollingAverageLength = "Three"
         RollingAverage = AllData[i][Metric]["New"]
-        for k in range(1, 7):
+        for k in range(1, 3):
           if RollingAverage != None:
             if AllData[i + k][Metric]["New"] != None:
               RollingAverage += AllData[i + k][Metric]["New"]
