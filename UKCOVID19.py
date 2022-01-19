@@ -1374,7 +1374,7 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
     while not SuccessfulCheck:
       try:
         WriteToMainLog("Checking for log banner (blue) messages. . .")
-        for Address in StatusMessagesAddresses["BlueBannersAddresses"]:
+        for Address in StatusMessagesAddresses["BlueBannersAddresses"].replace("%DATE%", CurrentDate):
           Messages = loads(requests.get(Address).text)
           for Message in Messages:
             if Message["date"] == CurrentDate:
@@ -1456,7 +1456,7 @@ def WriteToMainLog(Text, Date = True):
     Output = "[" + datetime.now().astimezone().replace(microsecond=0).isoformat(sep='T') + "] " + Text + "\n"
   else:
     Output = Text + "\n"
-  with open(Files["RuntimeLogs"], 'a') as LogFile:
+  with open(Files["RuntimeLogs"].replace("%DATE%", date.today().isoformat()), 'a') as LogFile:
     LogFile.write(Output)
 
 def PrintError():
