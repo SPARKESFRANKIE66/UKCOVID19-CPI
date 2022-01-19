@@ -335,6 +335,7 @@ async def TimeReview():
           OldLED.off()
           NewLED.off()
           LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
+          LoadConfig(False)
           if date.today().weekday() == 0:
             VerifyMassData()
       else:
