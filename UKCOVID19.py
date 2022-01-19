@@ -479,6 +479,10 @@ def VerifyMassData(ReloadIfFail = True):
   WriteToMainLog("Verifying mass data store integrity. . .")
   AllData = GetAllData()
   DateToCheck = (date.today() - timedelta(days=1))
+  if len(AllData) == 0:
+    if ReloadIfFail:
+      ReloadMassData
+    return False
   for i in range(len(AllData)):
     while ExcludedDates.__contains__(DateToCheck):
       DateToCheck -= timedelta(days=1)
@@ -589,7 +593,7 @@ def CalculateRollAvgPeaks(AllData):
       }
     }
   }
-  for i in range(len(AllData), -1, -1):
+  for i in range(len(AllData) - 1, -1, -1):
     for Metric in Metrics:
       RollingAverage = AllData[i][Metric]["RollingAverages"]["Seven"]["Average"]
       RollingAveragePeak = False
@@ -631,7 +635,7 @@ def CalculateRollAvgPeaks(AllData):
   return RollAvgPeaks
 
 def CommitToFile(AllData, RollAvgPeaks):
-  with open(Files["AllData"]) as AllDataFile:
+  with open(Files["AllData"], 'w') as AllDataFile:
     AllDataFile.write("[\n")
     for i in range(len(AllData)):
       AllDataFile.write("  " + dumps(AllData[i]))
@@ -639,9 +643,9 @@ def CommitToFile(AllData, RollAvgPeaks):
         AllDataFile.write(",\n")
     AllDataFile.write("\n]")
   if RollAvgPeaks != None:
-    with open(Files["RollAvgPeaks"]) as RollAvgPeaksFile:
+    with open(Files["RollAvgPeaks"], 'w') as RollAvgPeaksFile:
       RollAvgPeaksFile.write("[\n")
-      RollAvgPeaksFile.write("  \"Cases\": " + dumps(RollAvgPeaks["Cases"] + ",\n"))
+      RollAvgPeaksFile.write("  \"Cases\": " + dumps(RollAvgPeaks["Cases"]) + ",\n")
       RollAvgPeaksFile.write("  \"Deaths\": " + dumps(RollAvgPeaks["Deaths"]) + "\n")
       RollAvgPeaksFile.write("]")
 
@@ -1080,33 +1084,35 @@ async def on_message_edit(BeforeMessage, AfterMessage):
     await on_message(AfterMessage)
 
 async def GetDataCommand(Command):
-  if len(Command) == 2:
-    if VerifyDate(Command[1]):
-      VerifyMassData()  
-      WriteToMainLog("Data requested for " + Command[1] + ". Obtaining data. . .")
-      AllData = GetAllData()
-      DataFound = False
-      for i in range(len(AllData)):
-        if AllData[i]["Date"] == Command[1]:
-          DataFound = True
-          WriteToMainLog("Data found.")
-          await SendData("PRIMARY", AllData[i], i)
-          break
-      if not DataFound:
-        WriteToMainLog("Data not found.")
-        await SendNotification("No data was found for this date.")
-    else:
-      await SendNotification("`$getdata` command supports date only in ISO 8601 format (YYYY-MM-DD). Omit for the latest data.")
-  elif len(Command) == 1:
-    VerifyMassData()
-    WriteToMainLog("Latest data requested.")
-    AllData = GetAllData()
-    await SendData("PRIMARY", AllData[0], 0)
+  AllData = GetAllData()
+  if len(AllData) == 0:
+    await SendNotification("No data to send.")
   else:
-    await SendNotification("`$getdata` command takes zero or one argument of type *date*.")
+    if len(Command) == 2:
+      if VerifyDate(Command[1]):
+        VerifyMassData()  
+        WriteToMainLog("Data requested for " + Command[1] + ". Obtaining data. . .")
+        DataFound = False
+        for i in range(len(AllData)):
+          if AllData[i]["Date"] == Command[1]:
+            DataFound = True
+            WriteToMainLog("Data found.")
+            await SendData("PRIMARY", AllData[i], i)
+            break
+        if not DataFound:
+          WriteToMainLog("Data not found.")
+          await SendNotification("No data was found for this date.")
+      else:
+        await SendNotification("`$getdata` command supports date only in ISO 8601 format (YYYY-MM-DD). Omit for the latest data.")
+    elif len(Command) == 1:
+      VerifyMassData()
+      WriteToMainLog("Latest data requested.")
+      await SendData("PRIMARY", AllData[0], 0)
+    else:
+      await SendNotification("`$getdata` command takes zero or one argument of type *date*.")
 
 async def MessagesCommand():
-  if not (ResendMessages() or CheckForMessage()):
+  if not (await ResendMessages() or await CheckForMessage()):
     await SendNotification("No messages found for today yet.")
 
 async def RollAvgPeaksCommand(Command):
@@ -1277,11 +1283,11 @@ async def VersionCommand():
   Changelog = [
 
   ]
-  Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version" + Version + ".\nChangelog:\n```"
+  Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version " + Version + ".\nChangelog:\n```"
   for Line in Changelog:
     if len(Output + "\n" + Line) - 8 >= 2000:
-      await SendNotification(Output)
-      Output = ""
+      await SendNotification(Output + "\n```")
+      Output = "```"
     Output += "\n" + Line
   Output += "\n```"
   await SendNotification(Output)
@@ -1334,7 +1340,7 @@ async def ResendMessages():
   CurrentDate = date.today().isoformat()
   MessageSent = False
   for Message in Messages:
-    if Message["Date"] == CurrentDate:
+    if Message["Date"] == CurrentDate and not Message["Sent"]:
       if Message["Type"] == "AdminMessages":
         MessageOrigin = "Bot Admin"
       elif Message["Type"] == "LogBannersMessages" or Message["Type"] == "Metric":
@@ -1358,9 +1364,9 @@ async def CheckForMessage(CurrentDate = date.today().isoformat()):
         ExistingMessages = ReadMessagesFile()
         for Message in ExistingMessages:
           if Message["Type"] == "AdminMessages" and Message["Date"] == CurrentDate:
-            if not MessageAlreadySent(Message["Body"], ExistingMessages):
+            if not MessageAlreadySent(Message["Message"], ExistingMessages):
               NewMessages = True
-              await SendMessage(CurrentDate, Message["Body"], "Bot Admin")
+              await SendMessage(CurrentDate, Message["Message"], "Bot Admin")
               Message["Sent"] = True
         SuccessfulCheck = True
       except:
@@ -1438,7 +1444,7 @@ async def SendMessage(Date, Message, MessageOrigin):
   WriteToMainLog("Sending message. . .")
   await WaitForDiscord()
   MessageContents = Message.split("\r\n")
-  Output = "Message for " + Date + " from the " + MessageOrigin
+  Output = "Message for " + Date + " from the " + MessageOrigin + ":"
   for Paragraph in MessageContents:
     if len(Output + "\n> " + Paragraph) >= 1992:
       Output += "\n(cont)"
