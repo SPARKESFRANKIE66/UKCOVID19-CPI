@@ -547,7 +547,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
               RollingAverage = None
         if RollingAverage != None:
           RollingAverage /= 7
-          AllData[i][Metric]["RollingAverage"][RollingAverageLength]["Average"] = RollingAverage
+          AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
       if i <= len(AllData) - 3:
         RollingAverageLength = "Three"
         RollingAverage = AllData[i][Metric]["New"]
@@ -559,7 +559,7 @@ def CalculateRollingAveragesAndDailyChange(AllData):
               RollingAverage = None
         if RollingAverage != None:
           RollingAverage /= 3
-          AllData[i][Metric]["RollingAverage"][RollingAverageLength]["Average"] = RollingAverage
+          AllData[i][Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
       if i < len(AllData) - 1:
         if AllData[i][Metric]["New"] != None and AllData[i + 1][Metric]["New"] != None:
           AllData[i][Metric]["Change"] = AllData[i][Metric]["New"] - AllData[i + 1][Metric]["New"]
@@ -699,8 +699,8 @@ def CalculateRollingAverages(NumOfDays, AllData, NewData):
     if RollingAverage != None:
       RollingAverage /= NumOfDays
       LatestRecordFormatted[Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
-      if AllData[0][Metric]["RollingAverage"][RollingAverageLength]["Average"] != None:
-        LatestRecordFormatted[Metric]["RollingAverages"][RollingAverageLength]["Change"] = RollingAverage - AllData[0][Metric]["RollingAverage"][RollingAverageLength]["Average"]
+      if AllData[0][Metric]["RollingAverages"][RollingAverageLength]["Average"] != None:
+        LatestRecordFormatted[Metric]["RollingAverages"][RollingAverageLength]["Change"] = RollingAverage - AllData[0][Metric]["RollingAverages"][RollingAverageLength]["Average"]
   WriteToMainLog("Specified rolling average calculated.")
 
 def AddToAllData():
@@ -988,11 +988,11 @@ async def SendData(Structure, Data, Index = 0):
         AverageNumber = RollingAverage.split(',')[1]
         Output += "\n    Roll Avg (" + AverageNumber + "-Day):"
         if type(Data[Metric]["RollingAverages"][AverageWord]["Average"]) is float:
-          Output += "\n      Average:    {:,}".format(round(Data[Metric]["RollingAverage"][AverageWord]["Average"], NumDecimalPointForRounding))
+          Output += "\n      Average:    {:,}".format(round(Data[Metric]["RollingAverages"][AverageWord]["Average"], NumDecimalPointForRounding))
         else:
           Output += "\n      Average:    None"
         if type(Data[Metric]["RollingAverages"][AverageWord]["Change"]) is float:
-          Output += "\n      Change:     {:,}".format(round(Data[Metric]["RollingAverage"][AverageWord]["Change"], NumDecimalPointForRounding)) + GetArrow(Data[Metric]["RollingAverages"][AverageWord]["Change"])
+          Output += "\n      Change:     {:,}".format(round(Data[Metric]["RollingAverages"][AverageWord]["Change"], NumDecimalPointForRounding)) + GetArrow(Data[Metric]["RollingAverages"][AverageWord]["Change"])
         else:
           Output += "\n      Change:     None" + Emoji["Cross"]
       if type(Data[Metric]["Corrections"]) is int:
