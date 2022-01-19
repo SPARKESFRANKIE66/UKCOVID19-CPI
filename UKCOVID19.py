@@ -480,26 +480,32 @@ def VerifyDataExists(Structure, Data):
 # Data Store Refresh & Verification Procedures
 def VerifyMassData(ReloadIfFail = True):
   WriteToMainLog("Verifying mass data store integrity. . .")
-  AllData = GetAllData()
-  DateToCheck = (date.today() - timedelta(days=1))
-  if len(AllData) == 0:
-    WriteToMainLog("Mass data store data not valid.")
+  try:
+    AllData = GetAllData()
+    DateToCheck = (date.today() - timedelta(days=1))
+    if len(AllData) == 0:
+      WriteToMainLog("Mass data store data not valid.")
+      if ReloadIfFail:
+        ReloadMassData()
+      return False
+    for i in range(len(AllData)):
+      while ExcludedDates.__contains__(DateToCheck):
+        DateToCheck -= timedelta(days=1)
+      if AllData[i]["Date"] != DateToCheck:
+        if i == 0 and AllData[i]["Date"] != date.today().isoformat():
+          WriteToMainLog("Mass data store data not valid.")
+          if ReloadIfFail:
+            ReloadMassData()
+          return False
+      else:
+        DateToCheck -= timedelta(days=1)
+    WriteToMainLog("Mass data store data valid.")
+    return True 
+  except FileNotFoundError:
+    WriteToMainLog("Mass data store file not found.")
     if ReloadIfFail:
       ReloadMassData()
     return False
-  for i in range(len(AllData)):
-    while ExcludedDates.__contains__(DateToCheck):
-      DateToCheck -= timedelta(days=1)
-    if AllData[i]["Date"] != DateToCheck:
-      if i == 0 and AllData[i]["Date"] != date.today().isoformat():
-        WriteToMainLog("Mass data store data not valid.")
-        if ReloadIfFail:
-          ReloadMassData()
-        return False
-    else:
-      DateToCheck -= timedelta(days=1)
-  WriteToMainLog("Mass data store data valid.")
-  return True
 
 def ReloadMassData(CalculateRollAvgPeak = True):
   global AllDataAPI, DataAggregationTemplate
@@ -842,7 +848,7 @@ def FindLastHighest(AllData, CheckData, Metric, StartingIndex = 0):
           LastHighestDate = CurrentIndex["Date"] + "; {:,}".format(CurrentIndex[Metric]["New"])
           break
   else:
-    LastHighestDate = None
+    LastHighestDate = "None"
   return LastHighestDate
 
 def GetArrow(Value):
@@ -870,13 +876,10 @@ def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
     Output += "```\nRolling Average Peaks (7-Day):"
     for Metric in Metrics:
       Output += ShowRollAvgPeaks(Metric.upper())
-    Output += "\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change."
-    Output += "\nA new global maximum will not create a local peak if one has not been made using the tests described here."
-    Output += "\n```"
   elif RequestedLength == None:
     Lengths = ["Local", "Global"]
     for Length in Lengths:
-      Output += ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
+      Output += "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
   else:
     RequestedMetric = RequestedMetric[0] + RequestedMetric[1:len(RequestedMetric)].lower()
     RequestedLength = RequestedLength[0] + RequestedLength[1:len(RequestedLength)].lower()
@@ -889,6 +892,9 @@ def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
     else:
       Output += "\n      Average: None"
     Output += "\n      Date:    " + str(RollAvgPeaks[RequestedMetric][RequestedLength]["Date"])
+  Output += "\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change."
+  Output += "\nA new global maximum will not create a local peak if one has not been made using the tests described here."
+  Output += "\n```"
   return Output
 
 # COVID Pi Procedures
@@ -964,9 +970,9 @@ async def SendData(Structure, Data, Index = 0):
       "Three,3",
       "Seven,7"
     ]
-    Output += "PRIMARY DATA FOR " + Data["Date"] + ", " + Weekdays[Data["Day"]] + "\n"
+    Output += "PRIMARY DATA FOR " + Data["Date"] + ", " + Weekdays[Data["Day"]]
     for Metric in Metrics:
-      Output += Emoji[Metric] + Metric + ":"
+      Output += "\n" + Emoji[Metric] + Metric + ":"
       if type(Data[Metric]["New"]) is int:
         Output += "\n    New:          {:,}".format(Data[Metric]["New"])
       else:
@@ -1001,11 +1007,11 @@ async def SendData(Structure, Data, Index = 0):
         Output += "\n    Total:        None"
     Output += "\n" + Emoji["CaseFatality"] + "Case-Fatality Rate:"
     if type(Data["CaseFatality"]["Rate"]) is float:
-      Output += "\n    Rate:         {:,}%".format(round(Data["CaseFatality"]["Rate"], NumDecimalPointForRounding) * 100)
+      Output += "\n    Rate:         {:,}%".format(round(Data["CaseFatality"]["Rate"] * 100, NumDecimalPointForRounding))
     else:
       Output += "\n    Rate:         None"
     if type(Data["CaseFatality"]["Change"]) is float:
-      Output += "\n    Change:       {:,}p.p.".format(round(Data["CaseFatality"]["Change"], NumDecimalPointForRounding) * 100)
+      Output += "\n    Change:       {:,}p.p.".format(round(Data["CaseFatality"]["Change"] * 100, NumDecimalPointForRounding))
     else:
       Output += "\n    Change:       None"
   elif Structure == "SECONDARY":
@@ -1057,7 +1063,7 @@ async def on_message(Message):
           await GetDataCommand(Command.split(' '))
         elif Command.startswith("$MESSAGES"):
           WriteToMainLog("Command received of type \"MESSAGES\".")
-          MessagesCommand()
+          await MessagesCommand()
         elif Command.startswith("$RAVGPEAKS"):
           WriteToMainLog("Command received of type \"RAVGPEAKS\".")
           await RollAvgPeaksCommand(Command.split(' '))
@@ -1115,7 +1121,7 @@ async def MessagesCommand():
 async def RollAvgPeaksCommand(Command):
   WriteToMainLog("Obtaining rolling average peaks. . .")
   if len(Command) == 1:
-    Output = ShowRollAvgPeaks()
+    Output = "```\n" + ShowRollAvgPeaks() + "\n```"
   elif len(Command) == 2:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()):
       Output = ShowRollAvgPeaks(Command[1].upper())
@@ -1278,11 +1284,61 @@ async def VariantCommand(Command):
 
 async def VersionCommand():
   Changelog = [
-
+    "01. Complete rewrite.",
+    "02. API Messages & File Paths: Replaced hard-coded dates in URLs and file paths with a %DATE% placeholder.",
+    "03. Changelog: Text changed to monospace format.",
+    "04. Configuration:",
+    "  A. Replaced discord.txt and hard coded variable values for one config.json file.",
+    "  B. Added a function that would allow the replacement of some configuration values without the need for a restart.",
+    "05. COVID Pi: Moved display building into new function.",
+    "06. Discord Commands:",
+    "  A. Split each command into its own function.",
+    "  B. Replaced help output string with list.",
+    "  C. GetData:",
+    "    I. Removed references to the \"latest\" parameter in one of the error messages.",
+    "    II. Corrected error message that stated the command takes exactly one argument and included the type of parameter.",
+    "    III. Using the command will force a verification of the data store.",
+    "  D. RAVGPeaks:",
+    "    I. Moved building output message to new function and utilised recursion.",
+    "    II. Added message in help clarifying that one parameter must be included when another is used.",
+    "    III. Amended the wording of the error messages to be more descriptive.",
+    "  E: Version: Added a flag that would prevent the script from crashing due to this changelog being too fucking big.",
+    "07. Logs: Removed runtime logs where text is \"Done.\".",
+    "08. Mass Data:",
+    "  A. Added the ability for the script to verify the mass data and to refresh the data at regular intervals or when invalid.",
+    "  B. Added a check that would prevent rolling averages, corrections, and daily change from being calculated if the data was invalid.",
+    "  C. Working on cutting back code duplication.",
+    "09. Primary: Fixed a bug that would cause the script to crash if the corrections number could not be calculated.",
+    "10. Primary & Secondary Data Outputs:",
+    "  A. Removed the datestamp.",
+    "  B. Removed code duplication.",
+    "11. Rolling Average Peaks: ",
+    "  A. Moved peak checking into new function and slimmed down function.",
+    "  B. Removed link between global and local rolling average peaks. A global peak no longer implicitly creates a local peak.",
+    "  C. Replaced the Rolling Average placeholder text to be more descriptive.",
+    "  D. Removed code duplication.",
+    "12. Secondary: Added dictionary for total doses that adds numbers during the existing loop.",
+    "13. Sending of Discord Messages: Unified sending of messages around one method.",
+    "14. Status Messages:",
+    "  A. Fixed a bug that would cause a message already sent to be sent multiple times when using the `$messages` command.",
+    "  B. Moved reading of the Messages.json file into new function.",
+    "  C. Added text in the sent message that indicates the origin of the message.",
+    "  D. Fixed a bug that would cause the script to enter an infinite loop if the contents of Messages.json was invalid upon a check.",
+    "15. Supplementary Files: Removed all functions of LastOutput.txt and Discord.txt.",
+    "16. Time Check:",
+    "  A. Fixed a bug that would prevent the timeout message from sending if one set of data was obtained, but not the other.",
+    "  B. Fixed a bug that would prevent the script from preparing for a new day if that date was excluded.",
+    "17. Variants:",
+    "  A. Removed the number field and selection by number.",
+    "  B. Added more checks to ensure the script cannot crash due to exceeding the Discord character limit.",
+    "  C. Associations:",
+    "    I. Renamed the References data type with \"Reference\".",
+    "    II. Replaced the Substring data type for list from string.",
+    "    III. Replaced the Reference data type for string from list."
   ]
   Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version " + Version + ".\nChangelog:\n```"
   for Line in Changelog:
-    if len(Output + "\n" + Line) - 8 >= 2000:
+    if len(Output + "\n" + Line) + 8 >= 2000:
       await SendNotification(Output + "\n```")
       Output = "```"
     Output += "\n" + Line
@@ -1308,7 +1364,7 @@ async def CommandHelp():
 # COVID Variant Procedures
 def VariantDetails(VariantData):
   Output = ""
-  if ["CONCERN", "INTEREST"].__contains__(VariantData["Variant Of"]):
+  if ["CONCERN", "INTEREST"].__contains__(VariantData["Variant of"]):
     Output += "\nLetter: " + VariantData["Ltr"]
     Output += "\nLatin Name: " + VariantData["Latin"]
   Output += "\nPANGO Lineages:"
