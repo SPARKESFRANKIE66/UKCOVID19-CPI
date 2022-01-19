@@ -232,7 +232,7 @@ def LoadConfig(Reload = False):
       if StatusMessages.__contains__("BlueBannersAddresses"):
         StatusMessagesAddresses["BlueBannersAddresses"] = StatusMessages["BlueBannersAddresses"]
       if StatusMessages.__contains__("YellowBannersAddress"):
-        StatusMessagesAddresses["YellowBannersAddress"] = StatusMessages["YellowBanners"]
+        StatusMessagesAddresses["YellowBannersAddress"] = StatusMessages["YellowBannersAddress"]
   else:
     Display.lcd_display_string("No config file.")
     raise Exception("The configuration file was not found in the specified directory.\nPlease check the file path and try again.")
@@ -330,6 +330,8 @@ async def TimeReview():
           OldLED.off()
           NewLED.off()
           LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
+          if date.today().weekday() == 0:
+            VerifyMassData()
       else:
         if CurrentTime == "0000" and PrimaryUpdated:
           PrimaryUpdated = False
@@ -1063,6 +1065,8 @@ async def on_message(Message):
         else:
           WriteToMainLog("Command received of unknown type. Returning command help.")
           CommandHelp()
+      elif Message.content.upper() == "GOOD BOT":
+        await SendNotification("Much thank")
   except:
     PrintError()
     await SendNotification("Unhandled exception occured when parsing your request. Please pester the bot admin for a solution.")
