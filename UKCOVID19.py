@@ -1,3 +1,4 @@
+from ast import Pass
 from datetime import date, datetime, timedelta
 from pydoc import _OldStyleClass
 from unittest.mock import NonCallableMagicMock
@@ -186,7 +187,7 @@ def LoadConfig(Reload = False):
         if type(Configuration["UKPopulation"]) is int:
           UKPopulation = Configuration["UKPopulation"]
         else:
-          raise Exception("Key \UKPopulation\" must be in integer data type.")
+          raise Exception("Key \"UKPopulation\" must be in integer data type.")
       else:
         raise Exception("UK Population count not found in file.")
       if Configuration.has_key("VariantsEnable"):
@@ -1143,7 +1144,140 @@ async def RollAvgPeaksCommand(Command):
   WriteToMainLog("Peaks obtained and message sent.")
 
 async def VariantCommand(Command):
-  pass
+  try:
+    Output = ""
+    if len(Command) == 1 or len(Command) >= 3:
+      with open(Files["Variants"]) as VariantsFile:
+        VariantsFile = loads(VariantsFile.read())
+      VariantsList = VariantsFile["Variants"]
+    if len(Command) == 1:
+      VariantFound = False
+      for Variant in VariantsList:
+        Output += VariantDetails(Variant)
+        if len(Output) + 50 >= 2000:
+          await SendNotification(Output)
+          Output = ""
+    elif len(Command) == 2:
+      VariantFound = True
+      if Command[1].upper() == "HELP":
+        Output = "Variant lookup help:\n```"
+        Output += "\nCommand Format: $variant [DataType] [IndexTerm]"
+        Output += "\nDataType and IndexTerm parameters are both optional – omitting both returns all known variants. However, omitting one but not the other is allowed only to access help."
+        Output += "\n"
+        Output += "\nValid inputs for DataType:"
+        Output += "\n  To search by Greek letter: \"letter\", \"ltr\" (Case-senitive index term)."
+        Output += "\n  To search by latin name of Greek letter: \"latin\"."
+        Output += "\n  To search by PANGO lineage: \"pango\", \"scientific\", \"sci\"."
+        Output += "\n  To search by variant type: \"type\", \"variant\"."
+        Output += "\n  To search by earliest sample date: \"date\"."
+        Output += "\n  To search by associated country: \"nation\", \"country\"."
+        Output += "\n  To display help: \"help\". Omit IndexTerm for this DataType."
+        Output += "\n"
+        Output += "\nWhere the IndexTerm is not able to find a variant, an appropriate message will be displayed instead."
+        Output += "\n```"
+      else:
+        Output = "Invalid command. Please ensure the command meets the format of `$variants help`."
+    elif len(Command) >= 3:
+      if ["NATION", "COUNTRY"].__contains(Command[1].upper()):
+        try:
+          Nation = ""
+          if len(Command) > 3:
+            for i in range(2, len(Command)):
+              Nation += Command[i]
+              if i != len(Command) - 1:
+                Nation += " "
+          else:
+            Nation = flag.dflagize(Command[2]).replace(':', '')
+          if Nation.upper() != "UN":
+            Nation = countries.get(Nation).alpha2
+          for Variant in VariantsList:
+            if len(Variant) > 1:
+              if Variant["Nation"].upper() == Nation.upper():
+                VariantFound = True
+                if len(Output) + 100 >= 2000:
+                  await SendNotification(Output)
+                  Output = ""
+                Output += "\n`" + Nation + "` matches variant:" + VariantDetails(Variant)
+        except KeyError:
+          VariantFound = True
+          Output = "Nation not found. This may be due to a typo in the Aplha-2 or Alpha-3 code. Full national names are supported as written in ISO 3166."
+      elif len(Command) == 3:
+        if ["LETTER", "LTR"].__contains__(Command[1].upper()):
+          for Variant in VariantsList:
+            if len(Variant) > 1:
+              if ["CONCERN", "INTEREST"].__contains(Variant["Variant of"].upper()):
+                if Variant["Ltr"] == Command[2]:
+                  VariantFound = True
+                  if len(Output) + 100 >= 2000:
+                    await SendNotification(Output)
+                    Output = ""
+                  Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
+        elif ["LATIN"].__contains__(Command[1].upper()):
+          for Variant in VariantsList:
+            if len(Variant) > 1:
+              if ["CONCERN", "INTEREST"].__contains__(Command[2].upper()):
+                if Variant["Latin"].upper() == Command[2].upper():
+                  VariantFound = True
+                  if len(Output) + 100 >= 2000:
+                    await SendNotification(Output)
+                    Output = ""
+                  Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
+        elif ["PANGO", "SCIENTIFIC", "SCI"].__contains(Command[1].upper()):
+          Associations = VariantsFile["Associations"]
+          for Association in Associations:
+            for Substring in Association["Substring"]:
+              if Command[2].upper().startswith(Substring.upper()):
+                Reference = Association["Reference"]
+                for Variant in VariantsList:
+                  if Reference == Variant["PANGO"]:
+                    VariantFound = True
+                    if len(Output) + 120 >= 2000:
+                      await SendNotification(Output)
+                      Output = ""
+                    Output += "\n`" + Command[2] + "` references variant:" + VariantDetails("Variant")
+            if VariantFound:
+              break
+          if not VariantFound:
+            for Variant in VariantsList:
+              if len(Variant) > 1:
+                if list(map(lambda x:x.upper(), Variant["PANGO"])).__contains__(Command[2].upper()):
+                  VariantFound = True
+                  if len(Output) + 100 >= 2000:
+                    await SendNotification(Output)
+                    Output = ""
+                  Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
+              if VariantFound:
+                break
+        elif ["TYPE", "VARIANT"].__contains__(Command[1].upper()):
+          for Variant in VariantsList:
+            if len(Variant) > 1:
+              if Variant["Variant of"].upper() == Command[2].upper():
+                VariantFound = True
+                if len(Output) + 100 >= 2000:
+                  await SendNotification(Output)
+                  Output = ""
+                Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
+        elif ["DATE"].__contains(Command[1].upper()):
+          for Variant in VariantsList:
+            if len(Variant) > 1:
+              if Variant["Earliest Sample"].upper() == Command[2].upper():
+                VariantFound = True
+                if len(Output) + 100 >= 2000:
+                  await SendNotification(Output)
+                  Output = ""
+                Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
+      else:
+        VariantFound = True
+        Output = "Invalid command. Please ensure the command meets the format of `$variants [DataType] [IndexTerm]`. IndexTerm can only take national names separated by space when used in the `Nation` or `Country` DataType."
+    else:
+      VariantFound = True
+      Output = "Invalid command. Please ensure the command meets the format of `$variants [DataType] [IndexTerm]` or `$variants help`."
+    if not VariantFound:
+      Output = "No variants found."
+    await SendNotification(Output)
+  except:
+    PrintError()
+    await SendNotification("Unhandled exception occured when parsing your request. Please pester the bot admin for a solution.")
 
 async def VersionCommand():
   Changelog = [
@@ -1151,6 +1285,9 @@ async def VersionCommand():
   ]
   Output = "COVID Pi and ~~UK-COV19 Bot~~ Botty-Mc-Bot-Face Version" + Version + ".\nChangelog:\n```"
   for Line in Changelog:
+    if len(Output + "\n" + Line) - 8 >= 2000:
+      await SendNotification(Output)
+      Output = ""
     Output += "\n" + Line
   Output += "\n```"
   await SendNotification(Output)
@@ -1172,11 +1309,24 @@ async def CommandHelp():
   await SendNotification(Output)
 
 # COVID Variant Procedures
-async def VariantLookup(Message):
-  pass
-
-def VariantDetails(VariantData, Number):
-  pass
+def VariantDetails(VariantData):
+  Output = ""
+  if ["CONCERN", "INTEREST"].__contains__(VariantData["Variant Of"]):
+    Output += "\nLetter: " + VariantData["Ltr"]
+    Output += "\nLatin Name: " + VariantData["Latin"]
+  Output += "\nPANGO Lineages:"
+  for i in range(len(VariantData["PANGO"])):
+    Output += " " + VariantData["PANGO"][i]
+    if i < len(VariantData) - 1:
+      Output += ","
+  Output += "\nVariant of: " + VariantData["Variant of"]
+  Output += "\nEarliest Sample: " + VariantData["Earliest Sample"]
+  Output += "\nAssociated Nation: " + flag.flag(VariantData["Nation"])
+  if VariantData["Nation"].upper() == "UN":
+    Output += " Multiple Countries"
+  else:
+    Output += " " + countries.get(VariantData["Nation"]).name
+  return Output
 
 # Status Messages
 def ReadMessagesFile():
