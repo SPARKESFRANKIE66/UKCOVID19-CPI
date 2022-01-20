@@ -681,13 +681,12 @@ def ParseData(Data):
     LatestRecordFormatted[Metric]["New"] = Data[Metric + "New"]
     LatestRecordFormatted[Metric]["Total"] = Data[Metric + "Total"]
     LatestRecordFormatted["CaseFatality"]["Rate"] = Data["DeathsTotal"] / Data["CasesTotal"]
-    if datetime.strptime(AllData[0]["Date"], "%Y-%m-%d") == date.today() - timedelta(days=1):
-      if AllData[0]["CaseFatality"]["Rate"] != None:
-        LatestRecordFormatted["CaseFatality"]["Change"] = LatestRecordFormatted["CaseFatality"]["Rate"] - AllData[0]["CaseFatality"]["Rate"]
-      if AllData[0][Metric]["New"] != None:
-        LatestRecordFormatted[Metric]["Change"] = Data[Metric + "New"] - AllData[0][Metric]["New"]
-        if AllData[0][Metric]["Total"] != None:
-          LatestRecordFormatted[Metric]["Corrections"] = Data[Metric + "Total"] - (Data[Metric + "New"] + AllData[0][Metric]["Total"])
+    if AllData[0]["CaseFatality"]["Rate"] != None:
+      LatestRecordFormatted["CaseFatality"]["Change"] = LatestRecordFormatted["CaseFatality"]["Rate"] - AllData[0]["CaseFatality"]["Rate"]
+    if AllData[0][Metric]["New"] != None:
+      LatestRecordFormatted[Metric]["Change"] = Data[Metric + "New"] - AllData[0][Metric]["New"]
+      if AllData[0][Metric]["Total"] != None:
+        LatestRecordFormatted[Metric]["Corrections"] = Data[Metric + "Total"] - (Data[Metric + "New"] + AllData[0][Metric]["Total"])
   WriteToMainLog("Parsing complete.")
   CalculateRollingAverages(3, AllData, Data)
   CalculateRollingAverages(7, AllData, Data)
@@ -702,14 +701,11 @@ def CalculateRollingAverages(NumOfDays, AllData, NewData):
   for Metric in Metrics:
     RollingAverage = NewData[Metric + "New"]
     for i in range(NumOfDays - 1):
-      if datetime.strptime(AllData[i]["Date"], "%Y-%m-%d") == date.today() - timedelta(days=i + 1): 
-        if RollingAverage != None:
-          if AllData[i][Metric]["New"] != None:
-            RollingAverage += AllData[i][Metric]["New"]
-          else:
-            RollingAverage = None
-      else:
-        RollingAverage = None
+      if RollingAverage != None:
+        if AllData[i][Metric]["New"] != None:
+          RollingAverage += AllData[i][Metric]["New"]
+        else:
+          RollingAverage = None
     if RollingAverage != None:
       RollingAverage /= NumOfDays
       LatestRecordFormatted[Metric]["RollingAverages"][RollingAverageLength]["Average"] = RollingAverage
@@ -730,7 +726,7 @@ def AddToAllData():
       AllDataFile.write(Output)
       for Data in ExistingData:
         Output += ",\n  " + dumps(Data)
-        AllDataFile.write(Output)
+      AllDataFile.write(Output)
       AllDataFile.write("\n]")
   WriteToMainLog("Data added to mass data store.")
 
