@@ -276,41 +276,31 @@ def WaitForNetwork():
 
 def ReloadLastOutput():
   global CurrentDisplay, DateOfCurrentData, ErrorMode
-  try:
-    if os.path.isfile(Files["AllData"]):
-      if os.path.getsize(Files["AllData"]) > 8:
+  if os.path.isfile(Files["AllData"]):
+    if os.path.getsize(Files["AllData"]) > 8:
+      try:
         with open(Files["AllData"], 'r') as AllDataFile:
           NewestRecordFromFile = loads(AllDataFile.read())[0]
-        try:
-          DateOfCurrentData = NewestRecordFromFile["Date"]
-          BuildDisplay(NewestRecordFromFile)
-        except:
-          PrintError()
-          ErrorMode = True
-          ErrorLED.on()
-          DateOfCurrentData = "1970-01-01"
-          CurrentDisplay[1] = "X"
-          CurrentDisplay[2] = "Previous data found,".center(20)
-          CurrentDisplay[3] = "Data is invalid.".center(20)
-          CommitDisplay(CurrentDisplay)
-      else:
-        WriteToMainLog("No previous data found.")
-        CurrentDisplay[2] = "No previous".center(20)
-        CurrentDisplay[3] = "data found.".center(20)
+        DateOfCurrentData = NewestRecordFromFile["Date"]
+        BuildDisplay(NewestRecordFromFile)
+      except:
+        PrintError()
+        ErrorMode = True
+        ErrorLED.on()
+        DateOfCurrentData = "1970-01-01"
+        CurrentDisplay[1] = "X"
+        CurrentDisplay[2] = "Previous data found,".center(20)
+        CurrentDisplay[3] = "Data is invalid.".center(20)
         CommitDisplay(CurrentDisplay)
     else:
       WriteToMainLog("No previous data found.")
       CurrentDisplay[2] = "No previous".center(20)
       CurrentDisplay[3] = "data found.".center(20)
       CommitDisplay(CurrentDisplay)
-  except:
-    PrintError()
-    ErrorMode = True
-    ErrorLED.on()
-    DateOfCurrentData = "1970-01-01"
-    CurrentDisplay[1] = "X"
-    CurrentDisplay[2] = "Previous data found,".center(20)
-    CurrentDisplay[3] = "Data is invalid.".center(20)
+  else:
+    WriteToMainLog("No previous data found.")
+    CurrentDisplay[2] = "No previous".center(20)
+    CurrentDisplay[3] = "data found.".center(20)
     CommitDisplay(CurrentDisplay)
 
 # Common Procedures
