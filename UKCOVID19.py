@@ -276,31 +276,41 @@ def WaitForNetwork():
 
 def ReloadLastOutput():
   global CurrentDisplay, DateOfCurrentData, ErrorMode
-  if os.path.isfile(Files["AllData"]):
-    if os.path.getsize(Files["AllData"]) > 8:
-      with open(Files["AllData"], 'r') as AllDataFile:
-        NewestRecordFromFile = loads(AllDataFile.read())[0]
-      try:
-        DateOfCurrentData = NewestRecordFromFile["Date"]
-        BuildDisplay(NewestRecordFromFile)
-      except:
-        PrintError()
-        ErrorMode = True
-        ErrorLED.on()
-        DateOfCurrentData = "1970-01-01"
-        CurrentDisplay[1] = "X"
-        CurrentDisplay[2] = "Previous data found,".center(20)
-        CurrentDisplay[3] = "Data is invalid.".center(20)
+  try:
+    if os.path.isfile(Files["AllData"]):
+      if os.path.getsize(Files["AllData"]) > 8:
+        with open(Files["AllData"], 'r') as AllDataFile:
+          NewestRecordFromFile = loads(AllDataFile.read())[0]
+        try:
+          DateOfCurrentData = NewestRecordFromFile["Date"]
+          BuildDisplay(NewestRecordFromFile)
+        except:
+          PrintError()
+          ErrorMode = True
+          ErrorLED.on()
+          DateOfCurrentData = "1970-01-01"
+          CurrentDisplay[1] = "X"
+          CurrentDisplay[2] = "Previous data found,".center(20)
+          CurrentDisplay[3] = "Data is invalid.".center(20)
+          CommitDisplay(CurrentDisplay)
+      else:
+        WriteToMainLog("No previous data found.")
+        CurrentDisplay[2] = "No previous".center(20)
+        CurrentDisplay[3] = "data found.".center(20)
         CommitDisplay(CurrentDisplay)
     else:
       WriteToMainLog("No previous data found.")
       CurrentDisplay[2] = "No previous".center(20)
       CurrentDisplay[3] = "data found.".center(20)
       CommitDisplay(CurrentDisplay)
-  else:
-    WriteToMainLog("No previous data found.")
-    CurrentDisplay[2] = "No previous".center(20)
-    CurrentDisplay[3] = "data found.".center(20)
+  except:
+    PrintError()
+    ErrorMode = True
+    ErrorLED.on()
+    DateOfCurrentData = "1970-01-01"
+    CurrentDisplay[1] = "X"
+    CurrentDisplay[2] = "Previous data found,".center(20)
+    CurrentDisplay[3] = "Data is invalid.".center(20)
     CommitDisplay(CurrentDisplay)
 
 # Common Procedures
@@ -504,6 +514,12 @@ def VerifyMassData(ReloadIfFail = True):
     return True 
   except FileNotFoundError:
     WriteToMainLog("Mass data store file not found.")
+    if ReloadIfFail:
+      ReloadMassData()
+    return False
+  except:
+    PrintError()
+    WriteToMainLog("Mass data store data not valid.")
     if ReloadIfFail:
       ReloadMassData()
     return False
