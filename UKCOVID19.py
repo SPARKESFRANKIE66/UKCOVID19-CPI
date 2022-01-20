@@ -492,7 +492,7 @@ def VerifyMassData(ReloadIfFail = True):
     for i in range(len(AllData)):
       while ExcludedDates.__contains__(DateToCheck):
         DateToCheck -= timedelta(days=1)
-      if AllData[i]["Date"] != DateToCheck:
+      if AllData[i]["Date"] != DateToCheck.isoformat():
         if i == 0 and AllData[i]["Date"] != date.today().isoformat():
           WriteToMainLog("Mass data store data not valid.")
           if ReloadIfFail:
@@ -618,7 +618,7 @@ def CalculateRollAvgPeaks(AllData):
           RollingAveragePeak = True
           RollAvgPeaks[Metric]["Global"]["Date"] = AllData[i]["Date"]
           RollAvgPeaks[Metric]["Global"]["Value"] = RollingAverage
-        if RollAvgPeaks[Metric]["Local"]["Value"] == None:
+        if RollAvgPeaks[Metric]["Local"]["Value"] == None and AllData[i][Metric]["RollingAverages"]["Seven"]["Change"] != None:
           if AllData[i][Metric]["RollingAverages"]["Seven"]["Change"] > 0:
             NumPositives = 1
             while AllData[i + NumPositives][Metric]["RollingAverages"]["Seven"]["Change"] > 0:
@@ -646,19 +646,24 @@ def CalculateRollAvgPeaks(AllData):
   return RollAvgPeaks
 
 def CommitToFile(AllData, RollAvgPeaks):
-  with open(Files["AllData"], 'w') as AllDataFile:
-    AllDataFile.write("[\n")
-    for i in range(len(AllData)):
-      AllDataFile.write("  " + dumps(AllData[i]))
-      if i != len(AllData) - 1:
-        AllDataFile.write(",\n")
-    AllDataFile.write("\n]")
+  if AllData != None:
+    WriteToMainLog("Committing mass data store to file. . .")
+    with open(Files["AllData"], 'w') as AllDataFile:
+      AllDataFile.write("[\n")
+      for i in range(len(AllData)):
+        AllDataFile.write("  " + dumps(AllData[i]))
+        if i != len(AllData) - 1:
+          AllDataFile.write(",\n")
+      AllDataFile.write("\n]")
+    WriteToMainLog("Mass data store committed to file.")
   if RollAvgPeaks != None:
+    WriteToMainLog("Committing rolling average peaks to file. . .")
     with open(Files["RollAvgPeaks"], 'w') as RollAvgPeaksFile:
-      RollAvgPeaksFile.write("[\n")
+      RollAvgPeaksFile.write("{\n")
       RollAvgPeaksFile.write("  \"Cases\": " + dumps(RollAvgPeaks["Cases"]) + ",\n")
       RollAvgPeaksFile.write("  \"Deaths\": " + dumps(RollAvgPeaks["Deaths"]) + "\n")
-      RollAvgPeaksFile.write("]")
+      RollAvgPeaksFile.write("}")
+    WriteToMainLog("Rolling averages peaks committed to file.")
 
 # Mass Data Handling Procedures
 def GetAllData():
@@ -789,6 +794,7 @@ async def CheckRollAvgPeaks():
       for Line in Output:
         FinalOutput += Line.replace("%CASESPLACEHOLDER%", CasesRAPlaceholder).replace("%DEATHSPLACEHOLDER%", DeathsRAPlaceholder) + "\n"
       await SendNotification(FinalOutput)
+      CommitPeaksToFile(RollAvgPeaks, CurrentPeaks)
     else:
       await SendNotification("No peaks today.")
     WriteToMainLog("Rolling average peaks checked.")
@@ -799,13 +805,9 @@ def LookForPeak(Metric, Flags, CurrentPeaks):
   if type(CurrentPeaks[Metric]["Global"]["Value"]) is float:
     if LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"] > CurrentPeaks[Metric]["Global"]["Value"]:
       Flags["NewGlobal"] = True
-      CurrentPeaks[Metric]["Global"]["Date"] = LatestRecordFormatted["Date"]
-      CurrentPeaks[Metric]["Global"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
   else:
     Flags["CreatedGlobal"] = True
     Flags["NewGlobal"] = True
-    CurrentPeaks[Metric]["Global"]["Date"] = LatestRecordFormatted["Date"]
-    CurrentPeaks[Metric]["Global"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
   if CurrentPeaks[Metric]["Local"]["Value"] == None:
     if LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Change"] > 0:
       AllData = GetAllData()
@@ -815,13 +817,9 @@ def LookForPeak(Metric, Flags, CurrentPeaks):
       if NumPositives >= 7:
         Flags["CreatedLocal"] = True
         Flags["NewLocal"] = True
-        CurrentPeaks[Metric]["Local"]["Date"] = LatestRecordFormatted["Date"]
-        CurrentPeaks[Metric]["Local"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
   if type(CurrentPeaks[Metric]["Local"]["Value"]) is float:
     if LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"] > CurrentPeaks[Metric]["Local"]["Value"]:
       Flags["NewLocal"] = True
-      CurrentPeaks[Metric]["Local"]["Date"] = LatestRecordFormatted["Date"]
-      CurrentPeaks[Metric]["Local"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
   if not Flags["NewLocal"] and CurrentPeaks[Metric]["Local"]["Value"] != None:
     if LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Change"] < 0:
       DateOfLastLocal = datetime.strptime(CurrentPeaks[Metric]["Local"]["Date"], "%Y-%m-%d")
@@ -833,14 +831,32 @@ def LookForPeak(Metric, Flags, CurrentPeaks):
           NumNegatives += 1
         if NumNegatives >= 10:
           Flags["ExpiredLocal"] = True
-          CurrentPeaks[Metric]["Local"]["Date"] = None
-          CurrentPeaks[Metric]["Local"]["Value"] = None
   WriteToMainLog("Checking complete for metric " + Metric + ".")
   return Flags
 
+def CommitPeaksToFile(Flags, CurrentPeaks):
+  WriteToMainLog("Checking if Rolling Average Peaks file needs recommitting. . .")
+  ChangesMade = True
+  for Metric in Metrics:
+    if Flags[Metric]["NewGlobal"]:
+      ChangesMade = True
+      CurrentPeaks[Metric]["Global"]["Date"] = LatestRecordFormatted["Date"]
+      CurrentPeaks[Metric]["Global"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
+    if Flags[Metric]["NewLocal"]:
+      ChangesMade = True
+      CurrentPeaks[Metric]["Local"]["Date"] = LatestRecordFormatted["Date"]
+      CurrentPeaks[Metric]["Local"]["Value"] = LatestRecordFormatted[Metric]["RollingAverages"]["Seven"]["Average"]
+    elif Flags[Metric]["ExpiredLocal"]:
+      ChangesMade = True
+      CurrentPeaks[Metric]["Local"]["Date"] = None
+      CurrentPeaks[Metric]["Local"]["Value"] = None
+  if ChangesMade:
+    WriteToMainLog("Recommit needed.")
+    CommitToFile(None, CurrentPeaks)
+
 def FindLastHighest(AllData, CheckData, Metric, StartingIndex = 0):
   LastHighestDate = "#N/A; all time highest"
-  Metric = Metric[0] + Metric[1:len(Metric)].lower()
+  Metric = Metric[0].upper() + Metric[1:len(Metric)].lower()
   if type(CheckData[Metric]["New"]) is int:
     for i in range(StartingIndex, len(AllData)):
       CurrentIndex = AllData[i]
@@ -981,7 +997,7 @@ async def SendData(Structure, Data, Index = 0):
       if type(Data[Metric]["Change"]) is int:
         Output += "\n    Change:       {:,}".format(Data[Metric]["Change"]) + GetArrow(Data[Metric]["Change"])
       else:
-        Output += "\n    Change:       None" + Emoji["Cases"]
+        Output += "\n    Change:       None" + Emoji["Cross"]
       if ShowLastHighest:
         Output += "\n    Last Highest: " + FindLastHighest(AllData, Data, Metric, Index)
       else:
@@ -1014,7 +1030,7 @@ async def SendData(Structure, Data, Index = 0):
     if type(Data["CaseFatality"]["Change"]) is float:
       Output += "\n    Change:       {:,}p.p.".format(round(Data["CaseFatality"]["Change"] * 100, NumDecimalPointForRounding))
     else:
-      Output += "\n    Change:       None"
+      Output += "\n    Change:       None" + Emoji["Cross"]
   elif Structure == "SECONDARY":
     VaccinationDoses = [
       "First",

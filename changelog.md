@@ -1,60 +1,54 @@
 # Changelog
-## Version 6.6
-Changes in dot update 6.6:
-1. Messages: Fixed a bug that caused the script to crash if a message exceeded 2,000 characters. 
-## Version 6.5
-Changes in dot update 6.5:
-1. API: Changed scan start time from 1540 to 1440 & timeout condition from 1500 to 1400.
-2. Secondary: Added total doses delivered as sum of the existing First, Second, and Additional doses.
-3. API: Fixed a bug that caused the bot to crash if a timeout condition was reached.
-4. Messages: Fixed an error that caused the wrong ISO standard to be displayed in the `$help` prompt.
-5. Variants: Fixed a bug that caused the script to crash when using the `number` command.
-## Version 6.4
-Changes in dot update 6.4:
-1. Messages: fixed a bug that caused some messages to be sent on every check.
-## Version 6.3
-Changes in dot update 6.3:
-1. Bot: fixed a bug that would cause the bot to crash on startup if no network connectivity was found.
-2. Messages: fixed a bug that caused an unhandled exception if an image with no text was sent.
-3. Secondary: added support for additional vaccinations.
-4. Data aggregation: fixed a bug that caused the program to not save the latest data if the script crashed.
-## Version 6.2
-Changes in dot update 6.2:
-1. Messages: fixed a bug that caused the script to enter an infinite loop if a defective messages file was passed.
-2. Secondary: added provision for the announcement of additional vaccinations. This will be added in a future update when the appropriate data becomes available from the API.
-3. Bot: fixed a bug that caused the script to wait 10 additional seconds when waiting for the bot to be ready.
-## Version 6.1
-Changes in dot update 6.1:
-1. Variants: added a last updated record to the variants file.
-2. COVID Pi: removed the marker for the corrections number.
-3. Messages:
-    1. Added command `$ravgpeaks` for returning the current rolling average peaks.
-    2. Added a comment that explains when a local rolling average peak may be created or expired by the bot.
-4. Bot: working on a bug that causes the script to crash on startup if a network connection is not found.
-5. Rolling Averages: fixed a bug that caused the premature expiration of local rolling average peaks.
-## Version 6.0
-Changes in major update 6.0:
-1. Complete rewrite.
-2. Primary:
-    1. Split API check function.
-3. Secondary:
-    1. Split API check function.
-    2. UK Population count changed to 68306137.
-4. Rolling Averages:
-    1. Added a message to confirm no new rolling average peaks.
-    2. Reorded the sequence of checks for rolling average peaks.
-5. API Status Messages:
-    1. Removed in-script storage of messages for current day.
-6. Discord Input Messages:
-    1. Added a message declaring an unhandled exception has occurred upon the occurance of an exception.
-    2. Improved handling of the changelog.
-7. Variants:
-    1. Fixed a bug that caused an unhandled exception when searching by number.
-    2. Added support for referenced PANGO lineages.
-    3. Added a message declaring an unhandled exception has occurred upon the occurance of an exception.
-    4. Added limited support for full country names. (N.B.: This is inconsistent between full national names [Russian Federation] and truncated names [Czechia] and handles names containing "Republic" strangely).
-    5. Added message highlighting whether a variant is an exact match or a reference match.
-8. Code:
-    1. Improved categorisation of methods and global variables.
-9. COVID Pi:
-    1. Changed duty cycle of Error LED in a fatal exception from 50% to 10%.
+## Version 7.0
+Changes in major version 7.0:
+1. Complete rewrite
+2. API Messages & File Paths: Replaced hard-coded dates in URLs and file paths with a `%DATE%` placeholder.
+3. Changelog: Text changed to monospace format.
+4. Configuration:
+    1. Replaced discord.txt and hard-coded variable values for one config.json file.
+    2. Added a function that would allow the replacement of some configuration values without the need for a restart.
+5. COVID Pi: Moved display building to new function.
+6. Discord Commands:
+    1. Split each command into its own function.
+    2. Replaced help output string with list.
+    3. GetData:
+        1. Removed references to the "latest" parameter in one of the error messages.
+        2. Corrected error message that stated the command takes exactly one argument and included the type of parameter.
+        3. Using the command will force a verification of the data store.
+    4. RAVGPeaks:
+        1. Moved building output message to new function and utilised recursion.
+        2. Added message in help clarifying that one parameter must be included when another is used.
+        3. Amended the wording of the error messages to be more descriptive.
+    5. Version: Added a flag that would prevent the script from crashing due to this changelog being too fucking big.
+7. Logs: Removed runtime logs where text is "Done.".
+8. Mass Data:
+    1. Added the ability for the script to verify the mass data and to refresh the data at regular intervals or when invalid.
+    2. Added a check that would prevent rilling averages, corrections, and daily change from being calculated if the data was invalid.
+    3. Working on cutting back code duplication.
+9. Primary: Fixed a bug that would cause the script to crash if the corrections number could not be calculated.
+10. Primary & Secondary Data Outputs:
+    1. Removed the datestamp.
+    2. Removed code duplication.
+11. Rolling Average Peaks:
+    1. Moved peak checking into new function and slimmed down function.
+    2. Removed link between global and local rolling average peaks. A global peak no longer implicitly creates a local peak.
+    3. Replaced the Rolling Average placeholder text to be more descriptive.
+    4. Removed code duplication.
+12. Secondary: Added dictionary for total doses tha adds the numbers doing the existing loop.
+13. Sending of Discord Messages: Unified sending of messages around one method.
+14. Status Messages:
+    1. Fixed a bug that would cause a message already sent to be sent multiple times when using the `$messages` command.
+    2. Moved reading of the Messages.json file into new function.
+    3. Aded text in the sent message that indicates the origin of the message.
+    4. Fixed a bug that would cause the script to enter an infinite loop if the contents of Messages.json was invalid upon a check.
+15. Supplementary Files: Removed all functions of LastOutput.txt and Discord.txt
+16. Time Check:
+    1. Fixed a bug that would prevent the timeout message from sending if one set of data was obtained, but not the other.
+    2. Fixed a bug that would prevent the script from preparing for a new day if that day was excluded.
+17. Variants:
+    1. Removed the number field and selection by number.
+    2. Added more checks to ensure the script cannot crash due to exceeding the Discord character limit.
+    3. Associations:
+        1. Renamed the References data type with "Reference".
+        2. Replaced the Substring data type for `list` from `string`.
+        3. Replaced the Reference data type for `string` from `list`.
