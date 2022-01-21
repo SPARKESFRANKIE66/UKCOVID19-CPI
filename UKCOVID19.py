@@ -729,7 +729,6 @@ def AddToAllData():
     with open(Files["AllData"], 'w') as AllDataFile:
       AllDataFile.write("[\n")
       Output = "  " + dumps(LatestRecordFormatted)
-      AllDataFile.write(Output)
       for Data in ExistingData:
         Output += ",\n  " + dumps(Data)
       AllDataFile.write(Output)
@@ -740,7 +739,7 @@ async def CheckRollAvgPeaks():
   Output = []
   if not VerifyMassData(ReloadIfFail=False):
     WriteToMainLog("Main data store not valid. Peaks not calculated.")
-    Output.append("An error occurred and the peaks could not be calculated. Please pester the bot admin for an explanation.")
+    await SendNotification("An error occurred and the peaks could not be calculated. Please pester the bot admin for an explanation.")
   else:
     WriteToMainLog("Checking rolling average peaks. . .")
     RollAvgPeaks = {
@@ -892,7 +891,6 @@ def VerifyDate(Date):
 def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
   Output = ""
   if RequestedMetric == None:
-    Output += "```\nRolling Average Peaks (7-Day):"
     for Metric in Metrics:
       Output += ShowRollAvgPeaks(Metric.upper())
   elif RequestedLength == None:
@@ -911,9 +909,6 @@ def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
     else:
       Output += "\n      Average: None"
     Output += "\n      Date:    " + str(RollAvgPeaks[RequestedMetric][RequestedLength]["Date"])
-  Output += "\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change."
-  Output += "\nA new global maximum will not create a local peak if one has not been made using the tests described here."
-  Output += "\n```"
   return Output
 
 # COVID Pi Procedures
@@ -1138,9 +1133,10 @@ async def MessagesCommand():
     await SendNotification("No messages found for today yet.")
 
 async def RollAvgPeaksCommand(Command):
+  ClosingText = "\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change.\nA new global maximum will not create a local peak if one has not been made using the tests described here."
   WriteToMainLog("Obtaining rolling average peaks. . .")
   if len(Command) == 1:
-    Output = "```\n" + ShowRollAvgPeaks() + "\n```"
+    Output = "```\nRolling Average Peaks (7-Day):\n" + ShowRollAvgPeaks() + ClosingText + "\n```"
   elif len(Command) == 2:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()):
       Output = ShowRollAvgPeaks(Command[1].upper())
@@ -1154,10 +1150,10 @@ async def RollAvgPeaksCommand(Command):
       Output += "\n  Local: returns the current local peak, or none if no peak."
       Output += "\n  Global: returns the current all-time global peak, or none if no peak.\n```"
     else:
-      Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric]`."
+      Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric]` or `$getdata help`."
   elif len(Command) == 3:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()) and ["LOCAL", "GLOBAL"].__contains__(Command[2]):
-      Output = ShowRollAvgPeaks(Command[1].upper(), Command[2].upper())
+      Output = "```\nRolling Average Peaks (7-Day):\n" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper()) + ClosingText + "\n```"
     else:
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric] [Length]`."
   else:
