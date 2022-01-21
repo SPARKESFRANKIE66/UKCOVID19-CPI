@@ -1164,12 +1164,13 @@ async def RollAvgPeaksCommand(Command):
 async def VariantCommand(Command):
   try:
     Output = ""
+    VariantFound = False
     if len(Command) == 1 or len(Command) >= 3:
       with open(Files["Variants"]) as VariantsFile:
         VariantsFile = loads(VariantsFile.read())
       VariantsList = VariantsFile["Variants"]
     if len(Command) == 1:
-      VariantFound = False
+      VariantFound = True
       for Variant in VariantsList:
         Output += VariantDetails(Variant)
         if len(Output) + 50 >= 2000:
@@ -1196,7 +1197,7 @@ async def VariantCommand(Command):
       else:
         Output = "Invalid command. Please ensure the command meets the format of `$variants help`."
     elif len(Command) >= 3:
-      if ["NATION", "COUNTRY"].__contains(Command[1].upper()):
+      if ["NATION", "COUNTRY"].__contains__(Command[1].upper()):
         try:
           Nation = ""
           if len(Command) > 3:
@@ -1223,7 +1224,7 @@ async def VariantCommand(Command):
         if ["LETTER", "LTR"].__contains__(Command[1].upper()):
           for Variant in VariantsList:
             if len(Variant) > 1:
-              if ["CONCERN", "INTEREST"].__contains(Variant["Variant of"].upper()):
+              if ["CONCERN", "INTEREST"].__contains__(Variant["Variant of"].upper()):
                 if Variant["Ltr"] == Command[2]:
                   VariantFound = True
                   if len(Output) + 100 >= 2000:
@@ -1240,19 +1241,20 @@ async def VariantCommand(Command):
                     await SendNotification(Output)
                     Output = ""
                   Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
-        elif ["PANGO", "SCIENTIFIC", "SCI"].__contains(Command[1].upper()):
+        elif ["PANGO", "SCIENTIFIC", "SCI"].__contains__(Command[1].upper()):
           Associations = VariantsFile["Associations"]
           for Association in Associations:
             for Substring in Association["Substring"]:
               if Command[2].upper().startswith(Substring.upper()):
                 Reference = Association["Reference"]
                 for Variant in VariantsList:
-                  if Reference == Variant["PANGO"]:
-                    VariantFound = True
-                    if len(Output) + 120 >= 2000:
-                      await SendNotification(Output)
-                      Output = ""
-                    Output += "\n`" + Command[2] + "` references variant:" + VariantDetails("Variant")
+                  for Lineage in Variant["PANGO"]:
+                    if Reference == Lineage:
+                      VariantFound = True
+                      if len(Output) + 120 >= 2000:
+                        await SendNotification(Output)
+                        Output = ""
+                      Output += "\n`" + Command[2] + "` references variant:" + VariantDetails("Variant")
             if VariantFound:
               break
           if not VariantFound:
@@ -1275,7 +1277,7 @@ async def VariantCommand(Command):
                   await SendNotification(Output)
                   Output = ""
                 Output += "\n`" + Command[2] + "` matches variant:" + VariantDetails(Variant)
-        elif ["DATE"].__contains(Command[1].upper()):
+        elif ["DATE"].__contains__(Command[1].upper()):
           for Variant in VariantsList:
             if len(Variant) > 1:
               if Variant["Earliest Sample"].upper() == Command[2].upper():
@@ -1379,13 +1381,13 @@ async def CommandHelp():
 # COVID Variant Procedures
 def VariantDetails(VariantData):
   Output = ""
-  if ["CONCERN", "INTEREST"].__contains__(VariantData["Variant of"]):
+  if ["CONCERN", "INTEREST"].__contains__(VariantData["Variant of"].upper()):
     Output += "\nLetter: " + VariantData["Ltr"]
     Output += "\nLatin Name: " + VariantData["Latin"]
   Output += "\nPANGO Lineages:"
   for i in range(len(VariantData["PANGO"])):
     Output += " " + VariantData["PANGO"][i]
-    if i < len(VariantData) - 1:
+    if i < len(VariantData["PANGO"]) - 1:
       Output += ","
   Output += "\nVariant of: " + VariantData["Variant of"]
   Output += "\nEarliest Sample: " + VariantData["Earliest Sample"]
