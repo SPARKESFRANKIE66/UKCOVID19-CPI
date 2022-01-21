@@ -896,7 +896,7 @@ def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
   elif RequestedLength == None:
     Lengths = ["Local", "Global"]
     for Length in Lengths:
-      Output += "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
+      Output += ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
   else:
     RequestedMetric = RequestedMetric[0] + RequestedMetric[1:len(RequestedMetric)].lower()
     RequestedLength = RequestedLength[0] + RequestedLength[1:len(RequestedLength)].lower()
@@ -1133,13 +1133,13 @@ async def MessagesCommand():
     await SendNotification("No messages found for today yet.")
 
 async def RollAvgPeaksCommand(Command):
-  ClosingText = "\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change.\nA new global maximum will not create a local peak if one has not been made using the tests described here."
+  ClosingText = "\n\nThe bot will create a new local peak after 7 consecutive days of positive average change and will expire a local peak after 10 consecutive days of negative average change.\nA new global maximum will not create a local peak if one has not been made using the tests described here."
   WriteToMainLog("Obtaining rolling average peaks. . .")
   if len(Command) == 1:
-    Output = "```\nRolling Average Peaks (7-Day):\n" + ShowRollAvgPeaks() + ClosingText + "\n```"
+    Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks() + ClosingText + "\n```"
   elif len(Command) == 2:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()):
-      Output = ShowRollAvgPeaks(Command[1].upper())
+      Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper()) + ClosingText + "\n```"
     elif Command[2].upper() == "HELP":
       Output = "```\nCommand format: $ravgpeaks [Metric] [Length]"
       Output += "\nMetric and Length parameters are optional. However, the Metric parameter must be included if the Length parameter is to be used.\n"
@@ -1153,7 +1153,7 @@ async def RollAvgPeaksCommand(Command):
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric]` or `$getdata help`."
   elif len(Command) == 3:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()) and ["LOCAL", "GLOBAL"].__contains__(Command[2]):
-      Output = "```\nRolling Average Peaks (7-Day):\n" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper()) + ClosingText + "\n```"
+      Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper()) + ClosingText + "\n```"
     else:
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric] [Length]`."
   else:
