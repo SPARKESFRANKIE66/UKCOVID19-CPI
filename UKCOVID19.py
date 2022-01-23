@@ -890,22 +890,23 @@ def VerifyDate(Date):
   except ValueError: 
     return False
 
-def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None):
+def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None, ShowHeadings = False):
   Output = ""
   if RequestedMetric == None:
     for Metric in Metrics:
-      Output += ShowRollAvgPeaks(Metric.upper())
+      Output += "\n  " + Metric + ":" + ShowRollAvgPeaks(Metric.upper())
   elif RequestedLength == None:
     Lengths = ["Local", "Global"]
     for Length in Lengths:
-      Output += ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
+      Output += "\n  " + Length + ":" + ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
   else:
     RequestedMetric = RequestedMetric[0] + RequestedMetric[1:len(RequestedMetric)].lower()
     RequestedLength = RequestedLength[0] + RequestedLength[1:len(RequestedLength)].lower()
     with open(Files["RollAvgPeaks"], 'r') as RollAvgPeaksFile:
       RollAvgPeaks = loads(RollAvgPeaksFile.read())
-    Output += "\n  " + RequestedMetric + ":"
-    Output += "\n    " + RequestedLength + ":"
+    if ShowHeadings:
+      Output += "\n  " + RequestedMetric + ":"
+      Output += "\n    " + RequestedLength + ":"
     if type(RollAvgPeaks[RequestedMetric][RequestedLength]["Value"]) is float:
       Output += "\n      Average: {:,}".format(round(RollAvgPeaks[RequestedMetric][RequestedLength]["Value"], 3))
     else:
@@ -1160,7 +1161,7 @@ async def RollAvgPeaksCommand(Command):
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric]` or `$getdata help`."
   elif len(Command) == 3:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()) and ["LOCAL", "GLOBAL"].__contains__(Command[2]):
-      Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper()) + ClosingText + "\n```"
+      Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper(), True) + ClosingText + "\n```"
     else:
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric] [Length]`."
   else:
