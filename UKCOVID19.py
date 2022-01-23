@@ -337,7 +337,7 @@ async def TimeReview():
           LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
           LoadConfig(False)
           if date.today().weekday() == 0:
-            VerifyMassData()
+            ReloadMassData()
       else:
         if CurrentTime == "0000" and PrimaryUpdated:
           PrimaryUpdated = False
@@ -349,6 +349,8 @@ async def TimeReview():
           WriteToMainLog("No update today.")
           await SendMessage("No data is being released for this day.")
           await CheckForMessage()
+          if date.today().weekday() == 0:
+            ReloadMassData()
           await asyncio.sleep(60)
       if Minutes == "00":
         await CheckForMessage()
