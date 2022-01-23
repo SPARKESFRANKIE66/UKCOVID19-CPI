@@ -1129,7 +1129,12 @@ async def GetDataCommand(Command):
       await SendNotification("`$getdata` command takes zero or one argument of type *date*.")
 
 async def MessagesCommand():
-  if not (await ResendMessages() or await CheckForMessage()):
+  ExistingMessages = await ResendMessages()
+  if not ExistingMessages:
+    ExistingMessages = await CheckForMessage()
+  else:
+    await CheckForMessage()
+  if not ExistingMessages:
     await SendNotification("No messages found for today yet.")
 
 async def RollAvgPeaksCommand(Command):
@@ -1410,7 +1415,7 @@ async def ResendMessages():
   CurrentDate = date.today().isoformat()
   MessageSent = False
   for Message in Messages:
-    if Message["Date"] == CurrentDate and not Message["Sent"]:
+    if Message["Date"] == CurrentDate and Message["Sent"]:
       if Message["Type"] == "AdminMessages":
         MessageOrigin = "Bot Admin"
       elif Message["Type"] == "LogBannersMessages" or Message["Type"] == "Metric":
