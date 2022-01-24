@@ -898,7 +898,7 @@ def ShowRollAvgPeaks(RequestedMetric = None, RequestedLength = None, ShowHeading
   elif RequestedLength == None:
     Lengths = ["Local", "Global"]
     for Length in Lengths:
-      Output += "\n  " + Length + ":" + ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
+      Output += "\n    " + Length + ":" + ShowRollAvgPeaks(RequestedMetric.upper(), Length.upper())
   else:
     RequestedMetric = RequestedMetric[0] + RequestedMetric[1:len(RequestedMetric)].lower()
     RequestedLength = RequestedLength[0] + RequestedLength[1:len(RequestedLength)].lower()
@@ -1074,20 +1074,20 @@ async def on_message(Message):
   try:
     if Message.channel == DiscordClient.get_channel(id=ChannelID) and len(Message.content) > 0:
       if Message.content[0] == "$":
-        Command = Message.content.upper()
-        if Command.startswith("$GETDATA"):
+        Command = Message.content
+        if Command.upper().startswith("$GETDATA"):
           WriteToMainLog("Command received of type: \"GETDATA\".")
           await GetDataCommand(Command.split(' '))
-        elif Command.startswith("$MESSAGES"):
+        elif Command.upper().startswith("$MESSAGES"):
           WriteToMainLog("Command received of type \"MESSAGES\".")
           await MessagesCommand()
-        elif Command.startswith("$RAVGPEAKS"):
+        elif Command.upper().startswith("$RAVGPEAKS"):
           WriteToMainLog("Command received of type \"RAVGPEAKS\".")
           await RollAvgPeaksCommand(Command.split(' '))
-        elif Command.startswith("$VARIANT"):
+        elif Command.upper().startswith("$VARIANT"):
           WriteToMainLog("Command received of type \"VARIANT\".")
           await VariantCommand(Command.split(' '))
-        elif Command.startswith("$VERSION"):
+        elif Command.upper().startswith("$VERSION"):
           WriteToMainLog("Command received of type \"VERSION\".")
           await VersionCommand()
         else:
@@ -1160,7 +1160,7 @@ async def RollAvgPeaksCommand(Command):
     else:
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric]` or `$getdata help`."
   elif len(Command) == 3:
-    if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()) and ["LOCAL", "GLOBAL"].__contains__(Command[2]):
+    if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()) and ["LOCAL", "GLOBAL"].__contains__(Command[2].upper()):
       Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper(), Command[2].upper(), True) + ClosingText + "\n```"
     else:
       Output = "Invalid command. Please ensure the command meets the format of `$getdata [Metric] [Length]`."
@@ -1242,7 +1242,7 @@ async def VariantCommand(Command):
         elif ["LATIN"].__contains__(Command[1].upper()):
           for Variant in VariantsList:
             if len(Variant) > 1:
-              if ["CONCERN", "INTEREST"].__contains__(Command[2].upper()):
+              if ["CONCERN", "INTEREST"].__contains__(Variant["Variant of"].upper()):
                 if Variant["Latin"].upper() == Command[2].upper():
                   VariantFound = True
                   if len(Output) + 100 >= 2000:
