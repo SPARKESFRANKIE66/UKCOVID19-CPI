@@ -1089,7 +1089,11 @@ async def on_message(Message):
           await VariantCommand(Command.split(' '))
         elif Command.upper().startswith("$VERSION"):
           WriteToMainLog("Command received of type \"VERSION\".")
-          await VersionCommand()
+          if VariantsEnable:
+            await VersionCommand()
+          else:
+            WriteToMainLog("Variants command disabled.")
+            await SendNotification("Variants command has been disabled by the bot admin.")
         else:
           WriteToMainLog("Command received of unknown type. Returning command help.")
           await CommandHelp()
