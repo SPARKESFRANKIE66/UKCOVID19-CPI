@@ -318,7 +318,7 @@ async def TimeReview():
         PrimaryUpdated = True
         NewLED.on()
         WriteToMainLog("Latest data confirmed.")
-      elif not ExcludedDates.__contains__("CurrentDate"):
+      elif not ExcludedDates.__contains__(CurrentDate):
         if CurrentTime >= BeginTime and not (PrimaryUpdated or SecondaryUpdated):
           WriteToMainLog("Daily data load beginning.")
           LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
@@ -344,14 +344,12 @@ async def TimeReview():
           SecondaryUpdated = False
           OldLED.off()
           NewLED.off()
+          if date.today().weekday() == 0:
+            ReloadMassData()
         if not PrimaryUpdated:
           PrimaryUpdated = True
           WriteToMainLog("No update today.")
-          await SendMessage("No data is being released for this day.")
-          await CheckForMessage()
-          if date.today().weekday() == 0:
-            ReloadMassData()
-          await asyncio.sleep(60)
+          await SendMessage(CurrentDate, "No data is being released for this day.", "Bot Admin")
       if Minutes == "00":
         await CheckForMessage()
         await asyncio.sleep(55)

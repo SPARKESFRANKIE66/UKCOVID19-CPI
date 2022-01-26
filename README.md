@@ -60,7 +60,7 @@ You can create your own file using the following template:
 ```json
 {
   "Configuration": {
-    "ExcludedDays": [
+    "ExcludedDates": [
 
     ],
     "NetworkTestAddresses": [
