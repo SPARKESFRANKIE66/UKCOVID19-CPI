@@ -1435,8 +1435,10 @@ async def ResendMessages():
     WriteToMainLog("No existing messages found.")
   return MessageSent
 
-async def CheckForMessage(CurrentDate = date.today().isoformat()):
+async def CheckForMessage(CurrentDate = None):
   try:
+    if CurrentDate == None:
+      CurrentDate = date.today().isoformat()
     NewMessages = False
     SuccessfulCheck = False
     ExistingMessages = ReadMessagesFile()
