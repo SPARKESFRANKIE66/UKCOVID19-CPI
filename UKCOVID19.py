@@ -1084,14 +1084,14 @@ async def on_message(Message):
           await RollAvgPeaksCommand(Command.split(' '))
         elif Command.upper().startswith("$VARIANT"):
           WriteToMainLog("Command received of type \"VARIANT\".")
-          await VariantCommand(Command.split(' '))
-        elif Command.upper().startswith("$VERSION"):
-          WriteToMainLog("Command received of type \"VERSION\".")
           if VariantsEnable:
-            await VersionCommand()
+            await VariantCommand(Command.split(' '))
           else:
             WriteToMainLog("Variants command disabled.")
             await SendNotification("Variants command has been disabled by the bot admin.")
+        elif Command.upper().startswith("$VERSION"):
+          WriteToMainLog("Command received of type \"VERSION\".")
+          await VersionCommand()
         else:
           WriteToMainLog("Command received of unknown type. Returning command help.")
           await CommandHelp()
