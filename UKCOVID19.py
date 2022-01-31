@@ -344,7 +344,7 @@ async def TimeReview():
           SecondaryUpdated = False
           OldLED.off()
           NewLED.off()
-          if date.today().weekday() == 0:
+          if date.today().weekday() == 1:
             ReloadMassData()
         if not PrimaryUpdated:
           PrimaryUpdated = True
