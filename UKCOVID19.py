@@ -1532,7 +1532,7 @@ async def SendMessage(Date, Message, MessageOrigin):
     if len(Output + "\n> " + Paragraph) >= 1992:
       Output += "\n(cont)"
       await SendNotification(Output)
-      Output += "Continued:"
+      Output = "Continued:"
     Output += "\n> " + Paragraph
   await SendNotification(Output)
 

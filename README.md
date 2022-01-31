@@ -38,6 +38,15 @@ You can get the standard GPIO pinout of a Raspberry Pi [here](https://pinout.xyz
 
 Note: With this pin configuration, the Red LED will light briefly when the Pi boots up. This is because this pin is also used as UART TX. If this is an issue, you may move the LEDs to more suitable pins and modify the code accordingly.
 
+### Action Required before Operation
+The script has three keys in the `Files` dictionary, named `Config`, `ErrorLogs`, and `RuntimeLogs`.
+
+The `Config` key specifies the location of the `config.json` file mentioned below. By default, the script assumes this file to have that name and be stored in the same directory as the script. If this is not the case, the script will crash on startup; therefore, a separate file name and/or path for the config file must be specified in the code in this place. Example: `/home/pi/Documents/UKCOVID19/SuppFiles/config.json`
+
+The `ErrorLogs` key specifies the path in which Error Log files will be stored in. As this is a file path key, this must be the path of a folder ending in a forward slash. Without this key, the script will assume that these files are to be dumped in the same directory of the script. Example: `/home/pi/Documents/UKCOVID19/Logs/ErrorLogs/`
+
+The `RuntimeLogs` key specifies the path and standard filename that the Runtime Log files will have. In this case, you specify a path in which the logs will be stored in the same way as with `ErrorLogs` and append it with the template filename each log file will have. You can use `%DATE` to specify that a new log file is created on each day. Example: `/home/pi/Documents/UKCOVID19/Logs/RuntimeLogs/Log_%DATE%.txt`
+
 ### Files Required for Operation
 The script requires two files before it may operate:
 * `config.json`
@@ -92,9 +101,6 @@ You can create your own file using the following template:
   }
 }
 ```
-You must specify the path of the `config.json` in the code on line 101.
-
-Additionally, you can specify in code a custom path for the `ErrorLogs` to be stored and custom path and file name for the `RuntimeLogs` file, or allow it to use the root directory. For the `RuntimeLogs` file, you can separate the files by day by adding `%DATE%` anywhere in the filename.
 
 The `variants.json` file is a regularly updated file. It combines the COVID-19 variants of Concern, Interest, and Observation from the [WHO list](https://www.who.int/en/activities/tracking-SARS-CoV-2-variants/) and associations of these variants from the [PANGO Lineage](https://cov-lineages.org) website.
 
