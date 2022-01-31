@@ -336,7 +336,7 @@ async def TimeReview():
           NewLED.off()
           LatestRecordFormatted = loads(dumps(DataAggregationTemplate))
           LoadConfig(False)
-          if date.today().weekday() == 0:
+          if date.today().weekday() == 1:
             ReloadMassData()
       else:
         if CurrentTime == "0000" and PrimaryUpdated:
