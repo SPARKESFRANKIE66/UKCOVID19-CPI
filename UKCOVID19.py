@@ -1264,7 +1264,7 @@ async def VariantCommand(Command):
                       if len(Output) + 120 >= 2000:
                         await SendNotification(Output)
                         Output = ""
-                      Output += "\n`" + Command[2] + "` references variant:" + VariantDetails("Variant")
+                      Output += "\n`" + Command[2] + "` references variant:" + VariantDetails(Variant)
             if VariantFound:
               break
           if not VariantFound:
