@@ -1149,7 +1149,7 @@ async def RollAvgPeaksCommand(Command):
     Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks() + ClosingText + "\n```"
   elif len(Command) == 2:
     if list(map(lambda x:x.upper(), Metrics)).__contains__(Command[1].upper()):
-      Output = "```\nRolling Average Peaks (7-Day):" + ShowRollAvgPeaks(Command[1].upper()) + ClosingText + "\n```"
+      Output = "```\nRolling Average Peaks (7-Day):\n  " + Command[1][0].upper() + Command[1][1:len(Command[1])].lower() + ":" + ShowRollAvgPeaks(Command[1].upper()) + ClosingText + "\n```"
     elif Command[2].upper() == "HELP":
       Output = "```\nCommand format: $ravgpeaks [Metric] [Length]"
       Output += "\nMetric and Length parameters are optional. However, the Metric parameter must be included if the Length parameter is to be used.\n"
