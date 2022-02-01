@@ -329,7 +329,6 @@ async def TimeReview():
           await asyncio.sleep(90)
           await CheckForMessage()
         elif CurrentTime < BeginTime and PrimaryUpdated:
-          WriteToMainLog("--- NEW DAY ---", False)
           PrimaryUpdated = False
           SecondaryUpdated = False
           OldLED.off()
@@ -340,6 +339,7 @@ async def TimeReview():
             ReloadMassData()
       else:
         if CurrentTime == "0000" and PrimaryUpdated:
+          WriteToMainLog("--- NEW DAY ---", False)
           PrimaryUpdated = False
           SecondaryUpdated = False
           OldLED.off()
