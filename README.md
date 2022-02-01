@@ -101,7 +101,6 @@ You can create your own file using the following template:
   }
 }
 ```
-
 The `variants.json` file is a regularly updated file. It combines the COVID-19 variants of Concern, Interest, and Observation from the [WHO list](https://www.who.int/en/activities/tracking-SARS-CoV-2-variants/) and associations of these variants from the [PANGO Lineage](https://cov-lineages.org) website.
 
 Because neither of these services have any API or SDK to be utilised, this file needs to be updated manually at periodic intervals. I can provide these updates here for the life of the program here. However, if you wish to create your own file, use this template with the sample data as an example:
