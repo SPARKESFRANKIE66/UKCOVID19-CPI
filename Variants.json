@@ -1,23 +1,31 @@
 {
-  "Last Updated": "2021-12-20",
+  "Last Updated": "2022-01-19",
   "Associations": [
     {
-      "Substring": "Q.",
-      "References": [
-        "B.1.1.7"
-      ]
+      "Substring": [
+        "Q.",
+        "XA",
+        "XC"
+      ],
+      "Reference": "B.1.1.7"
     },
     {
-      "Substring": "XA",
-      "References": [
-        "B.1.1.7"
-      ]
+      "Substring": [
+        "AY."
+      ],
+      "Reference": "B.1.617.2"
     },
     {
-      "Substring": "AY.",
-      "References": [
-        "B.1.617.2"
-      ]
+      "Substring": [
+        "BA."
+      ],
+      "Reference": "B.1.1.529"
+    },
+    {
+      "Substring": [
+        "AZ."
+      ],
+      "Reference": "B.1.1.318"
     }
   ],
   "Variants": [
@@ -93,7 +101,7 @@
     },
     {
       "PANGO": [
-        "AZ.5"
+        "B.1.1.318"
       ],
       "Variant of": "Observation",
       "Earliest Sample": "2021-01",
@@ -106,38 +114,6 @@
       "Variant of": "Observation",
       "Earliest Sample": "2021-05",
       "Nation": "ZA"
-    },
-    {
-      "PANGO": [
-        "B.1.617.1"
-      ],
-      "Variant of": "Observation",
-      "Earliest Sample": "2020-10",
-      "Nation": "IN"
-    },
-    {
-      "PANGO": [
-        "B.1.526"
-      ],
-      "Variant of": "Observation",
-      "Earliest Sample": "2020-11",
-      "Nation": "US"
-    },
-    {
-      "PANGO": [
-        "B.1.525"
-      ],
-      "Variant of": "Observation",
-      "Earliest Sample": "2020-12",
-      "Nation": "UN"
-    },
-    {
-      "PANGO": [
-        "B.1.630"
-      ],
-      "Variant of": "Observation",
-      "Earliest Sample": "2021-03",
-      "Nation": "DO"
     },
     {
       "PANGO": [
